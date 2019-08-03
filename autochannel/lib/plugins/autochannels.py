@@ -25,8 +25,10 @@ async def manage_auto_voice_channels(autochannel):
                    empty_channel_count += 1
             LOG.debug(f'GUILD: {server.name} category: {cat.name} empty channel count {empty_channel_count}')
             if empty_channel_count < 1:
-                LOG.debug(f' Channel created {autochannel.auto_channel_prefix}{cat.name.upper()}')
-                await cat.create_voice_channel(f'{autochannel.auto_channel_prefix}{cat.name.upper()} - 1')
+                txt_channel_length = len(cat.text_channels)
+                LOG.debug(f' Channel created {autochannel.auto_channel_prefix} {cat.name.upper()}')
+                created_channel = await cat.create_voice_channel(f'{autochannel.auto_channel_prefix} {cat.name.upper()} - 1')
+                await created_channel.edit(position=1 + txt_channel_length)
 
 async def purge_unused_vc(autochannel):
     """
@@ -40,11 +42,11 @@ async def purge_unused_vc(autochannel):
                 if len(vc.members) < 1:
                     if utils.timediff(vc.created_at, currentTime) > 60:
                         purged_channel_count += 1
-                        LOG.info(f'Deleting Voice Channel: {vc.name} from GUILD: {server.name}')
+                        LOG.debug(f'Deleting Voice Channel: {vc.name} from GUILD: {server.name}')
                         await vc.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
                     else:
                         LOG.debug(f'Voice Channel: {vc.name} in GUILD: {server.name} is only {utils.timediff(vc.created_at, currentTime)} seconds old')
-        LOG.info(f'Purged {purged_channel_count} Custom Channels this loop')
+        LOG.debug(f'Purged {purged_channel_count} Custom Channels this loop')
         await asyncio.sleep(60)
 
 class ACMissingChannel(commands.CommandError):
@@ -63,8 +65,6 @@ class AutoChannels(commands.Cog):
     async def on_ready(self):
         """
         """
-        LOG.info('Starting Voice Channel purger loop')
-        #self.autochannel.loop.create_task(purge_unused_vc(self.autochannel))
         await manage_auto_voice_channels(self.autochannel)
 
     @commands.command(name='vc', aliases=['gc'])
@@ -81,7 +81,7 @@ class AutoChannels(commands.Cog):
             AC_suffix = self.vc_channel_number(ctx, data)
 
         cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category']][0]
-        created_channel = await ctx.guild.create_voice_channel(f'{self.autochannel.voice_channel_prefix}{data["category"]} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
+        created_channel = await ctx.guild.create_voice_channel(f'{self.autochannel.voice_channel_prefix} {data["category"]} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
         invite_link = await self.ac_invite(ctx, created_channel)
 
         await ctx.send(f'AutoChannel made `{ctx.author}` a channel `{created_channel.name}`')
@@ -128,8 +128,8 @@ class AutoChannels(commands.Cog):
         if empty_channel_count < 1:
             channel_suffix = self.ac_channel_number(auto_channels)
             txt_channel_length = len(cat.text_channels)
-            created_channel = await cat.create_voice_channel(f'{self.autochannel.auto_channel_prefix}{cat.name.upper()} - {channel_suffix}')
-            LOG.info(f'Cat position: {channel_suffix + txt_channel_length} ')
+            created_channel = await cat.create_voice_channel(f'{self.autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}')
+            LOG.debug(f'Updating channel: {created_channel.name} to position {channel_suffix + txt_channel_length} in category: {created_channel.category.name} ')
             await created_channel.edit(position=channel_suffix + txt_channel_length)
 
     async def before_ac_task(self, before):
@@ -150,7 +150,7 @@ class AutoChannels(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
         """
         """
-        LOG.info(self.valid_auto_channel(before))
+        LOG.debug(self.valid_auto_channel(before))
 
         if self.valid_auto_channel(before):
             await self.before_ac_task(before)
@@ -158,7 +158,7 @@ class AutoChannels(commands.Cog):
         if self.valid_auto_channel(after):
             await self.after_ac_task(after)
 
-        if before.channel.name.startswith(self.autochannel.voice_channel_prefix):
+        if before.channel is not None and before.channel.name.startswith(self.autochannel.voice_channel_prefix):
             if len(before.channel.members) < 1:
                 await before.channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
 
@@ -178,7 +178,7 @@ class AutoChannels(commands.Cog):
     def vc_channel_number(self, ctx, data):
         """
         """
-        ac_channels = [vc for vc in ctx.guild.voice_channels if vc.name.startswith(f'{self.autochannel.voice_channel_prefix}{data["category"]}')]
+        ac_channels = [vc for vc in ctx.guild.voice_channels if vc.name.startswith(f'{self.autochannel.voice_channel_prefix} {data["category"]}')]
         return (len(ac_channels) + 1)
 
     async def ac_invite(self, ctx, created_channel):

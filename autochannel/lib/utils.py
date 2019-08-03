@@ -58,7 +58,6 @@ def missing_numbers(L):
     """
     """
     start, end = 1, len(L) + 1
-    LOG.info(f'length {len(L)}')
     return sorted(set(range(start, end + 1)).difference(L))
 
 def block_check():

@@ -38,8 +38,9 @@ You will need to copy example.env to .env and update the value inside
 | `TOKEN`      | Token for your bots api access to discord | YES | N/A |
 | `BLOCKED_USERS` | Blocked UID's of users | NO | N/A |
 | `GAMES`      | Comma delimited list of games your bot is playing | NO | N/A |
-| `VOICE_CHANNEL_PREFIX` | The prefix the voice channels the bot manages | NO | "!F " |
-
+| `VOICE_CHANNEL_PREFIX` | The prefix the voice channels the bot manages | NO | "!F" |
+| `AUTO_CATEGORIES` | What categories to watch and auto channel generation | YES | "auto-voice" |
+| `AUTO_CHANNEL_PREFIX` | the prefix used to mark auto channels| NO | "!AC" |
 
 ### Now Running the bot locally
 run:
