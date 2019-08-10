@@ -140,11 +140,19 @@ class AutoChannels(commands.Cog):
         if len(before.channel.members) < 1:
             auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(self.autochannel.auto_channel_prefix)]
             empty_channel_count = 0
+            highest_empty_channel = None
             for ac in auto_channels:
                 if len(ac.members) < 1:
+                    LOG.debug(f'Channel name: {ac.name} has 0 members, Channel #: {self.get_ac_channel(ac)}' )
+                    if self.get_ac_channel(ac) > self.get_ac_channel(before.channel):
+                        highest_empty_channel = ac
                     empty_channel_count += 1
             if empty_channel_count > 1:
-                await before.channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
+                if highest_empty_channel:
+                    LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
+                    await highest_empty_channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
+                else:
+                    await before.channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -174,6 +182,11 @@ class AutoChannels(commands.Cog):
             suffix_list.append(int(''.join(channel.name.split(' ')[-1:])))
 
         return utils.missing_numbers(suffix_list)[0]
+
+    def get_ac_channel(self, auto_channel):
+        """
+        """
+        return int(''.join(auto_channel.name.split(' ')[-1:]))
 
     def vc_channel_number(self, ctx, data):
         """
