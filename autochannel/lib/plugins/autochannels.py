@@ -13,7 +13,6 @@ LOG = logging.getLogger(__name__)
 async def manage_auto_voice_channels(autochannel):
     """
     """
-    purged_channel_count = 0
     for server in autochannel.guilds:
         categories = [cat for cat in server.categories if cat.name.lower() in autochannel.auto_categories]
         LOG.debug(f'Found these categories: {categories} matching in GUILD {server.name}')
@@ -29,6 +28,20 @@ async def manage_auto_voice_channels(autochannel):
                 LOG.debug(f' Channel created {autochannel.auto_channel_prefix} {cat.name.upper()}')
                 created_channel = await cat.create_voice_channel(f'{autochannel.auto_channel_prefix} {cat.name.upper()} - 1')
                 await created_channel.edit(position=1 + txt_channel_length)
+            if empty_channel_count > 1:
+                LOG.info(f'TOO MANY CHANNELS in {cat.name}')
+
+async def ac_delete_channel(autochannel, reason):
+    """
+    insert logic to datadog metrics
+    """
+    await autochannel.delete(reason=reason)
+
+async def vc_delete_channel(voicechannel, reason):
+    """
+    insert logic to datadog metrics
+    """
+    await voicechannel.delete(reason=reason)
 
 async def purge_unused_vc(autochannel):
     """
@@ -43,7 +56,7 @@ async def purge_unused_vc(autochannel):
                     if utils.timediff(vc.created_at, currentTime) > 60:
                         purged_channel_count += 1
                         LOG.debug(f'Deleting Voice Channel: {vc.name} from GUILD: {server.name}')
-                        await vc.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
+                        await vc_delete_channel(vc, 'AutoChannel does not like unused channels cluttering up his 720 display')
                     else:
                         LOG.debug(f'Voice Channel: {vc.name} in GUILD: {server.name} is only {utils.timediff(vc.created_at, currentTime)} seconds old')
         LOG.debug(f'Purged {purged_channel_count} Custom Channels this loop')
@@ -60,6 +73,15 @@ class AutoChannels(commands.Cog):
     """
     def __init__(self, autochannel):
         self.autochannel = autochannel
+
+    def ac_highest_empty_channel(self, empty_auto_channels):
+        highest_empty_channel = None
+        for ec in empty_auto_channels:
+            if not highest_empty_channel:
+                highest_empty_channel = ec
+            if self.get_ac_channel(ec) > self.get_ac_channel(highest_empty_channel):
+                        highest_empty_channel = ec
+        return highest_empty_channel
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -86,10 +108,10 @@ class AutoChannels(commands.Cog):
 
         await ctx.send(f'AutoChannel made `{ctx.author}` a channel `{created_channel.name}`')
         await ctx.send(invite_link)
-        await asyncio.sleep(10)
+        await asyncio.sleep(60)
         if  len(created_channel.members) < 1:
             try:
-                await created_channel.delete(reason='No one joined the custom channel after 60 seconds')
+                await vc_delete_channel(created_channel, 'No one joined the custom channel after 60 seconds')
             except:
                 raise ACMissingChannel(f'Channel already deleted')
 
@@ -121,10 +143,7 @@ class AutoChannels(commands.Cog):
         cat = after.channel.category
         channel =  after.channel
         auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(self.autochannel.auto_channel_prefix)]
-        empty_channel_count = 0
-        for ac in auto_channels:
-            if len(ac.members) < 1:
-                empty_channel_count += 1
+        empty_channel_count = len([channel for channel in auto_channels if  len(channel.members) < 1])
         if empty_channel_count < 1:
             channel_suffix = self.ac_channel_number(auto_channels)
             txt_channel_length = len(cat.text_channels)
@@ -138,21 +157,13 @@ class AutoChannels(commands.Cog):
         cat = before.channel.category
         channel =  before.channel
         if len(before.channel.members) < 1:
-            auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(self.autochannel.auto_channel_prefix)]
-            empty_channel_count = 0
-            highest_empty_channel = None
-            for ac in auto_channels:
-                if len(ac.members) < 1:
-                    LOG.debug(f'Channel name: {ac.name} has 0 members, Channel #: {self.get_ac_channel(ac)}' )
-                    if self.get_ac_channel(ac) > self.get_ac_channel(before.channel):
-                        highest_empty_channel = ac
-                    empty_channel_count += 1
+            auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(self.autochannel.auto_channel_prefix) and len(channel.members) < 1]
+            LOG.debug(f'empty autochannels for {cat.name}: {auto_channels}')
+            empty_channel_count = len(auto_channels)
             if empty_channel_count > 1:
-                if highest_empty_channel:
-                    LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
-                    await highest_empty_channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
-                else:
-                    await before.channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
+                highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
+                LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
+                await ac_delete_channel(highest_empty_channel, 'AutoChannel does not like unused channels cluttering up his 720 display')
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -172,10 +183,10 @@ class AutoChannels(commands.Cog):
 
     def ac_channel_number(self, auto_channels):
         """
-        returns number from auto prefix and returns the lowest number
-        :param: object self: discord client
-        :param: objects auto_channels: List of voice_channels objects
-        :returns the lowest number missing from the sequence of voice_channels
+        returns number from auto prefix and returns the lowest number :param:
+        object self: discord client :param: objects auto_channels: List of
+        voice_channels objects :returns the lowest number missing from the
+        sequence of voice_channels
         """
         suffix_list = []
         for channel in auto_channels:
@@ -227,20 +238,20 @@ class AutoChannels(commands.Cog):
             cat_list.append(cat.name.lower())
         return cat_list
 
-    # @vc.error
-    # async def ac_handler(self, ctx, error):
-    #     """
-    #     """
-    #     embed = discord.Embed(
-    #         title = 'AutoChannel error',
-    #         colour = discord.Colour.red()
-    #     )
-    #     if isinstance(error, ACUnknownCategory):
-    #         msg = 'Unkonwn category, please type in an existing category in this Server'
-    #     else:
-    #         msg = error
-    #     embed.add_field(name='Error', value=msg)
-    #     await ctx.send(embed=embed)
+    @vc.error 
+    async def ac_handler(self, ctx, error):
+        """
+        """
+        embed = discord.Embed(
+            title = 'AutoChannel error',
+            colour = discord.Colour.red()
+        )
+        if isinstance(error, ACUnknownCategory):
+            msg = 'Unkonwn category, please type in an existing category in this Server'
+        else:
+            msg = error
+        embed.add_field(name='Error', value=msg)
+        await ctx.send(embed=embed)
 
 
 def setup(autochannel):
