@@ -8,6 +8,7 @@ INSTALL_REQUIREMENTS = [
     'asyncio',
     'aiomeasures',
     'coloredlogs',
+    'datadog',
     'discord.py==1.2.3',
     'pip==18.0',
     'pyyaml',

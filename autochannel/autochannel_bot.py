@@ -31,6 +31,9 @@ TOKEN = os.getenv('TOKEN')
 VOICE_CHANNEL_PREFIX = os.getenv('VOICE_CHANNEL_PREFIX') or '!VC '
 AUTO_CHANNEL_PREFIX = os.getenv('AUTO_CHANNEL_PREFIX') or '!AC '
 AUTO_CATEGORIES = os.getenv('AUTO_CATEGORIES').lower().split(",") or ['auto-voice']
+DD_API_KEY = os.getenv('DD_API_KEY') or None
+DD_APP_KEY = os.getenv('DD_APP_KEY') or None
+ENV = os.getenv('ENV') or None
 
 def main():
     """Entrypoint if called as an executable."""
@@ -48,11 +51,13 @@ def main():
     logging.getLogger('discord').setLevel(l_level)
     logging.getLogger('websockets.protocol').setLevel(l_level)
     logging.getLogger('urllib3').setLevel(l_level)
+    logging.getLogger('datadog').setLevel(l_level)
 
     LOG.info("LONG LIVE AutoChannel bot")
     autochannel = AutoChannel(shard_id=int(SHARD), shard_count=int(SHARD_COUNT),
                     command_prefix=BOT_PREFIX, app_id=APP_ID, voice_channel_prefix=VOICE_CHANNEL_PREFIX,
-                    auto_channel_prefix=AUTO_CHANNEL_PREFIX, auto_categories=AUTO_CATEGORIES)
+                    auto_channel_prefix=AUTO_CHANNEL_PREFIX, auto_categories=AUTO_CATEGORIES,
+                    dd_api_key=DD_API_KEY, dd_app_key=DD_APP_KEY, env=ENV)
 
     for extension in EXTENSIONS:
         plugin.load('autochannel.lib.plugins.{}'.format(extension), autochannel)
