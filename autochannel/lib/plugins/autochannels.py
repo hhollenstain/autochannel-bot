@@ -34,7 +34,7 @@ class AutoChannels(commands.Cog):
         await autochannel.delete(reason=reason)
 
     @discordDog.dd_task_count
-    async def ac_create_channel(self, cat, name=None):
+    async def ac_create_channel(self, cat, name=None, **kwargs):
         """
         """
         created_channel = await cat.create_voice_channel(name)
@@ -64,13 +64,13 @@ class AutoChannels(commands.Cog):
                 if empty_channel_count < 1:
                     channel_suffix = self.ac_channel_number(auto_channels)
                     LOG.debug(f' Channel created {autochannel.auto_channel_prefix} {cat.name.upper()}')
-                    created_channel = await self.ac_create_channel(cat, name=f'{autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}')
+                    created_channel = await self.ac_create_channel(cat, name=f'{autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name)
                     await created_channel.edit(position=1 + channel_suffix)
                 if empty_channel_count > 1:
                     while len(empty_channel_list) > 1:
                         highest_empty_channel = self.ac_highest_empty_channel(empty_channel_list)
                         empty_channel_list.pop(empty_channel_list.index(highest_empty_channel))
-                        await self.ac_delete_channel(highest_empty_channel)
+                        await self.ac_delete_channel(highest_empty_channel, guild=server.name)
                     LOG.info(f'TOO MANY CHANNELS in {cat.name}')
 
     def ac_highest_empty_channel(self, empty_auto_channels):
@@ -150,7 +150,7 @@ class AutoChannels(commands.Cog):
     #     else:
     #         return False
 
-    async def after_ac_task(self, after):
+    async def after_ac_task(self, after, member=None):
         """
         after_ac_task: handles the updates to the new channel the user entered
         :param: object self: discord client
@@ -163,11 +163,11 @@ class AutoChannels(commands.Cog):
         if empty_channel_count < 1:
             channel_suffix = self.ac_channel_number(auto_channels)
             txt_channel_length = len(cat.text_channels)
-            created_channel = await self.ac_create_channel(cat, f'{self.autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}')
+            created_channel = await self.ac_create_channel(cat, name=f'{self.autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild)
             LOG.debug(f'Updating channel: {created_channel.name} to position {channel_suffix + txt_channel_length} in category: {created_channel.category.name} ')
             await created_channel.edit(position=channel_suffix + txt_channel_length)
 
-    async def before_ac_task(self, before):
+    async def before_ac_task(self, before, member=None):
         """
         before_ac_task: handles the updates to the old channel the user left
         :param: object self: discord client
@@ -182,7 +182,7 @@ class AutoChannels(commands.Cog):
             if empty_channel_count > 1:
                 highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
                 LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
-                await self.ac_delete_channel(highest_empty_channel, reason='AutoChannel does not like unused channels cluttering up his 720 display')
+                await self.ac_delete_channel(highest_empty_channel, reason='AutoChannel does not like unused channels cluttering up his 720 display', guild=member.guild)
     @discordDog.dd_task_count
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -197,12 +197,11 @@ class AutoChannels(commands.Cog):
         :param: object after: after voice channel object
         """
         LOG.debug(self.valid_auto_channel(before))
-
         if self.valid_auto_channel(before):
-            await self.before_ac_task(before)
+            await self.before_ac_task(before, member=member)
 
         if self.valid_auto_channel(after):
-            await self.after_ac_task(after)
+            await self.after_ac_task(after, member=member)
 
         if before.channel is not None and before.channel.name.startswith(self.autochannel.voice_channel_prefix):
             if len(before.channel.members) < 1:

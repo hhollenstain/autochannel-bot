@@ -11,16 +11,21 @@ def dd_command_count(f):
     """
     @wraps(f)
     async def wrapper(self, *args, **kwargs):
-        self.stats.increment(f'autochannel_bot.command.{f.__name__}.count')
-        LOG.debug(f'STATS INCR: autochannel_bot.command.{f.__name__}.count')
+        guild = args[0].guild
+        self.stats.increment(f'autochannel_bot.command.{f.__name__}.count',tags=[f'guild:{guild}'])
+        LOG.debug(f'STATS INCR: autochannel_bot.command.{f.__name__}.count tags=[f"guild:{guild}"]')
         return await f(self, *args, **kwargs)
     return wrapper
 
 def dd_task_count(f):
     @wraps(f)
     async def wrapper(self, *args, **kwargs):
-        self.stats.increment(f'autochannel_bot.task.{f.__name__}.count')
-        LOG.debug(f'STATS INCR: autochannel_bot.task.{f.__name__}.count')
+        if kwargs.get('guild'):
+            guild = kwargs.get('guild')
+        else:
+            guild = args[0].guild
+        self.stats.increment(f'autochannel_bot.task.{f.__name__}.count', tags=[f'guild:{guild}'])
+        LOG.debug(f'STATS INCR: autochannel_bot.task.{f.__name__}.count tags=[f"guild:{guild}"]')
         return await f(self, *args, **kwargs)
     return wrapper
 
