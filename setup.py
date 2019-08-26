@@ -1,4 +1,4 @@
-"""``tamago`` lives on
+"""``AutoChannel-Bot`` lives on
 https://github.com/hhollenstain/autochannel-bot
 """
 from setuptools import setup, find_packages

@@ -6,39 +6,6 @@ from time import time
 
 LOG = logging.getLogger('discord')
 
-# def dd_timed(inner_dec):
-#     def ddmain(outer_dec):
-#         def decwrapper(f):
-#             wrapped = inner_dec(outer_dec(f))
-#             LOG.info(f'{args}, {kwargs}')
-#             def fwrapper(*args, **kwargs):
-#                return wrapped(f'autochannel_bot.{f.__name__}.time')
-#                LOG.info(f'timed wrapper: autochannel_bot.{f.__name__}.time')
-#             return fwrapper
-#         return decwrapper
-#     return ddmain
-
-def dd_command_timed(f):
-    """
-    """
-    @wraps(f)
-    async def wrapper(self, *args, **kwargs):
-        self.stats.agent.timed(f'autochannel_bot.command.{f.__name__}.time')
-        LOG.info(f'Timed command for : autochannel_bot.command.{f.__name__}.time')
-        return await f(self, *args, **kwargs)
-    return wrapper
-
-def dd_task_timed(f):
-    """
-    """
-    @wraps(f)
-    async def wrapper(self, *args, **kwargs):
-        self.stats.agent.timed(f'autochannel_bot.task.{f.__name__}.time')
-        self.stats.agent.flush()
-        LOG.debug(f'Timed command for : autochannel_bot.task.{f.__name__}.time')
-        return await f(self, *args, **kwargs)
-    return wrapper
-
 def dd_command_count(f):
     """
     """
@@ -99,21 +66,4 @@ class DDAgent:
 
     @dd_agent_check
     def increment(self, *args, **kwargs):
-        pass
-
-    @dd_agent_check
-    def incr(self, *args, **kwargs):
-        pass
-    
-    @dd_agent_check
-    def timed(self, *args, **kwargs):
-        pass
-
-    @dd_agent_check
-    def timer(self, *args, **kwargs):
-        pass
-
-    @dd_agent_check
-    def timing(self, *args, **kwargs):
-        # self.agent.timed(*args)
         pass

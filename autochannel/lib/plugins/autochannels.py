@@ -8,6 +8,7 @@ from datadog import ThreadStats
 from discord import Game
 from discord.ext import commands
 from autochannel.lib import discordDog, utils
+from autochannel.lib.discordDog import DDAgent
 
 LOG = logging.getLogger(__name__)
 
@@ -31,16 +32,11 @@ class AutoChannels(commands.Cog):
         """
         reason = kwargs.get('reason')
         await autochannel.delete(reason=reason)
-        # self.stats.increment('autochannel_bot.auto_channel_delete.count')
 
     @discordDog.dd_task_count
-   # @self.autochannel.stats.agent.timed('autochannel_bot.task.ac_create_channel.time')
-    #@discordDog.DDAgent.timed('autochannel_bot.task.ac_create_channel.time')
     async def ac_create_channel(self, cat, name=None):
         """
         """
-        LOG.info(dir(discordDog.DDagent))
-        self.stats.increment('autochannel_bot.auto_channel_create.count')
         created_channel = await cat.create_voice_channel(name)
         return created_channel
 
@@ -187,7 +183,7 @@ class AutoChannels(commands.Cog):
                 highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
                 LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
                 await self.ac_delete_channel(highest_empty_channel, reason='AutoChannel does not like unused channels cluttering up his 720 display')
-
+    @discordDog.dd_task_count
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         """
