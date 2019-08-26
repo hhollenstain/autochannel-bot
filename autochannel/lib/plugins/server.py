@@ -16,8 +16,8 @@ class Server(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        await self.autochannel.change_presence(status=discord.Status.idle, activity=Game('Waking up, making coffee...'))
         LOG.info('Logged in as {}'.format(self.autochannel.user.name))
+        await self.autochannel.change_presence(status=discord.Status.idle, activity=Game('Waking up, making coffee...'))
         self.autochannel.loop.create_task(utils.change_status(self.autochannel))
         self.autochannel.loop.create_task(utils.list_servers(self.autochannel))
 

@@ -1,4 +1,4 @@
-"""``tamago`` lives on
+"""``AutoChannel-Bot`` lives on
 https://github.com/hhollenstain/autochannel-bot
 """
 from setuptools import setup, find_packages
@@ -8,6 +8,7 @@ INSTALL_REQUIREMENTS = [
     'asyncio',
     'aiomeasures',
     'coloredlogs',
+    'datadog',
     'discord.py==1.2.3',
     'pip==18.0',
     'pyyaml',
