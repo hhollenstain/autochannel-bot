@@ -13,8 +13,11 @@ import sys
 from discord import Game
 from discord.ext import commands
 from discord.ext.commands import Bot
+
+"""AC Imports"""
 from autochannel.lib import plugin, utils
 from autochannel.autochannel import AutoChannel
+from autochannel.data.models import Guild, Category
 
 EXTENSIONS = [
     'autochannels',

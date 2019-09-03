@@ -7,8 +7,10 @@ import random
 from datadog import ThreadStats
 from discord import Game
 from discord.ext import commands
+"""AC imports"""
 from autochannel.lib import discordDog, utils
 from autochannel.lib.discordDog import DDAgent
+from autochannel.data.models import Guild, Category
 
 LOG = logging.getLogger(__name__)
 
@@ -49,29 +51,33 @@ class AutoChannels(commands.Cog):
         await voicechannel.delete(reason=reason)
         
     async def manage_auto_voice_channels(self, autochannel):
-        """
-        """
+        db_cats = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=True).all())
+        db_cats = [i[0] for i in db_cats]
+        LOG.info(f'DB CATS: {db_cats}')
         for server in autochannel.guilds:
-            categories = [cat for cat in server.categories if cat.name.lower() in autochannel.auto_categories]
-            """ Gets a list of categories that are defined to watch """
-            LOG.debug(f'Found these categories: {categories} matching in GUILD {server.name}')
-            for cat in categories:
-                auto_channels = [channel for channel in cat.voice_channels if  channel.name.startswith(autochannel.auto_channel_prefix)]
-                empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
-                """ need a list of empty channels to decide wat to clean up """
-                empty_channel_count = len(empty_channel_list)
-                LOG.debug(f'GUILD: {server.name} category: {cat.name} empty channel count {empty_channel_count}')
-                if empty_channel_count < 1:
-                    channel_suffix = self.ac_channel_number(auto_channels)
-                    LOG.debug(f' Channel created {autochannel.auto_channel_prefix} {cat.name.upper()}')
-                    created_channel = await self.ac_create_channel(cat, name=f'{autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name)
-                    await created_channel.edit(position=1 + channel_suffix)
-                if empty_channel_count > 1:
-                    while len(empty_channel_list) > 1:
-                        highest_empty_channel = self.ac_highest_empty_channel(empty_channel_list)
-                        empty_channel_list.pop(empty_channel_list.index(highest_empty_channel))
-                        await self.ac_delete_channel(highest_empty_channel, guild=server.name)
-                    LOG.info(f'TOO MANY CHANNELS in {cat.name}')
+             categories = [cat for cat in server.categories if cat.id in db_cats]
+             LOG.info(f'GUILD: {server.name}  cats: {categories}')
+
+
+            # """ Gets a list of categories that are defined to watch """
+            # LOG.debug(f'Found these categories: {categories} matching in GUILD {server.name}')
+            # for cat in categories:
+            #     auto_channels = [channel for channel in cat.voice_channels if  channel.name.startswith(autochannel.auto_channel_prefix)]
+            #     empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
+            #     """ need a list of empty channels to decide wat to clean up """
+            #     empty_channel_count = len(empty_channel_list)
+            #     LOG.debug(f'GUILD: {server.name} category: {cat.name} empty channel count {empty_channel_count}')
+            #     if empty_channel_count < 1:
+            #         channel_suffix = self.ac_channel_number(auto_channels)
+            #         LOG.debug(f' Channel created {autochannel.auto_channel_prefix} {cat.name.upper()}')
+            #         created_channel = await self.ac_create_channel(cat, name=f'{autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name)
+            #         await created_channel.edit(position=1 + channel_suffix)
+            #     if empty_channel_count > 1:
+            #         while len(empty_channel_list) > 1:
+            #             highest_empty_channel = self.ac_highest_empty_channel(empty_channel_list)
+            #             empty_channel_list.pop(empty_channel_list.index(highest_empty_channel))
+            #             await self.ac_delete_channel(highest_empty_channel, guild=server.name)
+            #         LOG.info(f'TOO MANY CHANNELS in {cat.name}')
 
     def ac_highest_empty_channel(self, empty_auto_channels):
         """
@@ -124,17 +130,31 @@ class AutoChannels(commands.Cog):
                 raise ACMissingChannel(f'Channel already deleted')
 
     def valid_auto_channel(self, v_state):
+        """[summary]
+        
+        Arguments:
+            v_state {[type]} -- [description]
+        
+        Returns:
+            [type] -- [description]
         """
-        valid_auto_channel
-        """
-        if (
+        if(
                 v_state is not None and
                 v_state.channel is not None and
-                v_state.channel.category is not None and
-                v_state.channel.name.startswith(self.autochannel.auto_channel_prefix) and
-                v_state.channel.category.name.lower() in self.autochannel.auto_categories
-            ):
-            return True
+                v_state.channel.category is not None
+
+          ):
+          
+            category = self.autochannel.session.query(Category).get(v_state.channel.category.id)
+            if (
+                    category and 
+                    category.enabled and 
+                    v_state.channel.name.startswith(category.prefix)
+                ):
+                LOG.info("SHIT TO DO SHIT")
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -157,15 +177,26 @@ class AutoChannels(commands.Cog):
         :param: object before: after state channel
         """
         cat = after.channel.category
-        channel =  after.channel
-        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(self.autochannel.auto_channel_prefix)]
+        category = self.autochannel.session.query(Category).get(cat.id)
+        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix)]
         empty_channel_count = len([channel for channel in auto_channels if  len(channel.members) < 1])
         if empty_channel_count < 1:
             channel_suffix = self.ac_channel_number(auto_channels)
             txt_channel_length = len(cat.text_channels)
-            created_channel = await self.ac_create_channel(cat, name=f'{self.autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild)
+            created_channel = await self.ac_create_channel(cat, name=f'{category.prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild)
             LOG.debug(f'Updating channel: {created_channel.name} to position {channel_suffix + txt_channel_length} in category: {created_channel.category.name} ')
             await created_channel.edit(position=channel_suffix + txt_channel_length)
+
+        # cat = after.channel.category
+        # channel =  after.channel
+        # auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(self.autochannel.auto_channel_prefix)]
+        # empty_channel_count = len([channel for channel in auto_channels if  len(channel.members) < 1])
+        # if empty_channel_count < 1:
+        #     channel_suffix = self.ac_channel_number(auto_channels)
+        #     txt_channel_length = len(cat.text_channels)
+        #     created_channel = await self.ac_create_channel(cat, name=f'{self.autochannel.auto_channel_prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild)
+        #     LOG.debug(f'Updating channel: {created_channel.name} to position {channel_suffix + txt_channel_length} in category: {created_channel.category.name} ')
+        #     await created_channel.edit(position=channel_suffix + txt_channel_length)
 
     async def before_ac_task(self, before, member=None):
         """
