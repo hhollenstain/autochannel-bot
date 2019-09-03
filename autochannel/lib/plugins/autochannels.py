@@ -50,10 +50,18 @@ class AutoChannels(commands.Cog):
         reason = kwargs.get('reason')
         await voicechannel.delete(reason=reason)
         
-    async def manage_auto_voice_channels(self, autochannel):
-        db_cats = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=True).all())
-        db_cats = [i[0] for i in db_cats]
-        for server in autochannel.guilds:
+    async def manage_auto_voice_channels(self, autochannel, guild=None):
+        if guild:
+            db_cats = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=True, guild_id=guild.id).all())
+            db_cats = [i[0] for i in db_cats]
+            ac_guilds = []
+            ac_guilds.append(guild)
+        else:
+            db_cats = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=True).all())
+            db_cats = [i[0] for i in db_cats]
+            ac_guilds = autochannel.guilds
+        
+        for server in ac_guilds:
             categories = [cat for cat in server.categories if cat.id in db_cats]
             """checking if the db knows about the categorey"""
             for cat in categories:
@@ -108,12 +116,13 @@ class AutoChannels(commands.Cog):
 
     @commands.command()
     @discordDog.dd_command_count
-    async def acupdate(self, ctx, *):
+    async def acupdate(self, ctx):
         """
         
         Arguments:
             ctx {[type]} -- [description]
         """
+        await self.manage_auto_voice_channels(self.autochannel, guild=ctx.guild)
 
 
 
