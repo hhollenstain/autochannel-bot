@@ -49,8 +49,6 @@ class Server(commands.Cog):
             colour = discord.Colour.green()
         )
 
-        autochannel_avatar = []
-
         embed.set_author(name='AutoChannel Bot')
         #embed.set_thumbnail(url=random.choice(autochannel_avatar))
         embed.add_field(name='description', value=f'AutoChannel is a WIP, add AutoChannel bot to your server! [add me](http://autochannel.xyz)', inline=True)

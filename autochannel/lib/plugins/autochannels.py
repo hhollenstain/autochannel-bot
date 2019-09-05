@@ -79,7 +79,7 @@ class AutoChannels(commands.Cog):
                     channel_suffix = self.ac_channel_number(auto_channels)
                     LOG.debug(f' Channel created {db_cat.prefix} {cat.name.upper()}')
                     position = channel_suffix + len(cat.text_channels)
-                    created_channel = await self.ac_create_channel(cat, name=f'{db_cat.prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name, position=position)
+                    await self.ac_create_channel(cat, name=f'{db_cat.prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name, position=position)
 
                 if empty_channel_count > 1:
                     while len(empty_channel_list) > 1:
