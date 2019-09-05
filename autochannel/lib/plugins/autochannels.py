@@ -51,9 +51,12 @@ class AutoChannels(commands.Cog):
         await voicechannel.delete(reason=reason)
         
     async def manage_auto_voice_channels(self, autochannel, guild=None):
+        db_cats_disabled = None
         if guild:
             db_cats = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=True, guild_id=guild.id).all())
             db_cats = [i[0] for i in db_cats]
+            db_cats_disabled = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=False, guild_id=guild.id).all())
+            db_cats_disabled = [i[0] for i in db_cats_disabled]
             ac_guilds = []
             ac_guilds.append(guild)
         else:
@@ -62,6 +65,15 @@ class AutoChannels(commands.Cog):
             ac_guilds = autochannel.guilds
         
         for server in ac_guilds:
+            if db_cats_disabled:
+                """ Runs if we have are calling the acupdate"""
+                categories = [cat for cat in server.categories if cat.id in db_cats_disabled]
+                for cat in categories:
+                    db_cat = self.autochannel.session.query(Category).get(cat.id)
+                    auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+                    for channel in auto_channels:
+                        await self.ac_delete_channel(channel, guild=server.name)
+            
             categories = [cat for cat in server.categories if cat.id in db_cats]
             """checking if the db knows about the categorey"""
             for cat in categories:
@@ -115,6 +127,7 @@ class AutoChannels(commands.Cog):
         await self.manage_auto_voice_channels(self.autochannel)
 
     @commands.command()
+    @commands.has_permissions(administrator=True)
     @discordDog.dd_command_count
     async def acupdate(self, ctx):
         """
@@ -122,7 +135,14 @@ class AutoChannels(commands.Cog):
         Arguments:
             ctx {[type]} -- [description]
         """
+        embed = discord.Embed(
+            title = 'AutoChannel update',
+            colour = discord.Colour.green()
+        )
+        msg = 'Syncd AutoChannel settings with server'
+        embed.add_field(name='Success', value=msg)
         await self.manage_auto_voice_channels(self.autochannel, guild=ctx.guild)
+        await ctx.send(embed=embed)
 
 
 
@@ -329,6 +349,22 @@ class AutoChannels(commands.Cog):
         for cat in ctx.guild.categories:
             cat_list.append(cat.name.lower())
         return cat_list
+
+    @acupdate.error 
+    async def acupdate_handler(self, ctx, error):
+        """
+        """
+        embed = discord.Embed(
+            title = 'AutoChannel error',
+            colour = discord.Colour.red()
+        )
+        if isinstance(error, commands.MissingPermissions):
+            embed.title = 'Insufficient permissions'
+            msg = 'Contact an admin for help.'
+        else:
+            msg = error
+        embed.add_field(name='Error', value=msg)
+        await ctx.send(embed=embed)
 
     @vc.error 
     async def ac_handler(self, ctx, error):
