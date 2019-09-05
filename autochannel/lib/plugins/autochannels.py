@@ -141,8 +141,13 @@ class AutoChannels(commands.Cog):
         else:
             AC_suffix = self.vc_channel_number(ctx, data)
 
+
         cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category']][0]
         created_channel = await ctx.guild.create_voice_channel(f'{self.autochannel.voice_channel_prefix} {data["category"]} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
+        overwrite = discord.PermissionOverwrite()
+        overwrite.manage_channels = True
+        overwrite.manage_roles  = True
+        await created_channel.set_permissions(ctx.message.author, overwrite=overwrite)
         invite_link = await self.ac_invite(ctx, created_channel)
 
         await ctx.send(f'AutoChannel made `{ctx.author}` a channel `{created_channel.name}`')
@@ -227,12 +232,20 @@ class AutoChannels(commands.Cog):
         :param: object before: before voice channel object 
         :param: object after: after voice channel object
         """
+        if(
+                    before.channel is not None and
+                    before.channel.name.startswith(self.autochannel.voice_channel_prefix) and
+                    len(before.channel.members) < 1
+        ):  
+            await self.vc_delete_channel(before.channel, reason="now empty")
+
         LOG.debug(self.valid_auto_channel(before))
         if self.valid_auto_channel(before):
             await self.before_ac_task(before, member=member)
-
+        LOG.debug(self.valid_auto_channel(after))
         if self.valid_auto_channel(after):
             await self.after_ac_task(after, member=member)
+
 
         # category = self.autochannel.session.query(Category).get(before.channel.category.id)
         # if before.channel is not None and before.channel.name.startswith(category.prefix):
