@@ -91,7 +91,7 @@ class AutoChannels(commands.Cog):
                     channel_suffix = self.ac_channel_number(auto_channels)
                     LOG.debug(f' Channel created {db_cat.prefix} {cat.name.upper()}')
                     position = channel_suffix + len(cat.text_channels)
-                    await self.ac_create_channel(cat, name=f'{db_cat.prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name, position=position)
+                    await self.ac_create_channel(cat, name=f'{db_cat.prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
 
                 if empty_channel_count > 1:
                     while len(empty_channel_list) > 1:
@@ -219,7 +219,7 @@ class AutoChannels(commands.Cog):
         if empty_channel_count < 1:
             channel_suffix = self.ac_channel_number(auto_channels)
             position =  channel_suffix + len(cat.text_channels)
-            created_channel = await self.ac_create_channel(cat, name=f'{category.prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild, position=position)
+            created_channel = await self.ac_create_channel(cat, name=f'{category.prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild, position=position, user_limit=category.channel_size)
             LOG.debug(f'Updating channel: {created_channel.name} to position {position} in category: {created_channel.category.name} ')
 
     async def before_ac_task(self, before, member=None):
