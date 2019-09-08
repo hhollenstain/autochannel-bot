@@ -26,5 +26,6 @@ class Guild(db.Model):
             cats[category.id]['prefix'] = category.prefix
             cats[category.id]['enabled'] = category.enabled
             cats[category.id]['channel_size'] = category.channel_size
+            cats[category.id]['empty_count'] = category.empty_count
         
         return cats

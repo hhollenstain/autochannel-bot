@@ -87,14 +87,17 @@ class AutoChannels(commands.Cog):
                 """
                 Maybe split this into another function???
                 """
-                if empty_channel_count < 1:
-                    channel_suffix = self.ac_channel_number(auto_channels)
-                    LOG.debug(f' Channel created {db_cat.prefix} {cat.name.upper()}')
-                    position = channel_suffix + len(cat.text_channels)
-                    await self.ac_create_channel(cat, name=f'{db_cat.prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
+                if empty_channel_count < db_cat.empty_count:
+                    while empty_channel_count < db_cat.empty_count:
+                        channel_suffix = self.ac_channel_number(auto_channels)
+                        LOG.debug(f' Channel created {db_cat.prefix} {cat.name.upper()}')
+                        position = channel_suffix + len(cat.text_channels)
+                        await self.ac_create_channel(cat, name=f'{db_cat.prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
+                        empty_channel_count += 1
+                        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
 
                 if empty_channel_count > 1:
-                    while len(empty_channel_list) > 1:
+                    while len(empty_channel_list) > db_cat.empty_count:
                         highest_empty_channel = self.ac_highest_empty_channel(empty_channel_list)
                         empty_channel_list.pop(empty_channel_list.index(highest_empty_channel))
                         await self.ac_delete_channel(highest_empty_channel, guild=server.name)
@@ -216,7 +219,7 @@ class AutoChannels(commands.Cog):
         category = self.autochannel.session.query(Category).get(cat.id)
         auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix)]
         empty_channel_count = len([channel for channel in auto_channels if  len(channel.members) < 1])
-        if empty_channel_count < 1:
+        if empty_channel_count < category.empty_count:
             channel_suffix = self.ac_channel_number(auto_channels)
             position =  channel_suffix + len(cat.text_channels)
             created_channel = await self.ac_create_channel(cat, name=f'{category.prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild, position=position, user_limit=category.channel_size)
@@ -234,7 +237,7 @@ class AutoChannels(commands.Cog):
             auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix) and len(channel.members) < 1]
             LOG.debug(f'empty autochannels for {cat.name}: {auto_channels}')
             empty_channel_count = len(auto_channels)
-            if empty_channel_count > 1:
+            if empty_channel_count > category.empty_count:
                 highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
                 LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
                 await self.ac_delete_channel(highest_empty_channel, reason='AutoChannel does not like unused channels cluttering up his 720 display', guild=member.guild)
