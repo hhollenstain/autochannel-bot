@@ -5,7 +5,10 @@ import asyncio
 import aiohttp
 import json
 from discord.ext.commands import Bot
+"""monitor"""
 from autochannel.lib.discordDog import DDAgent
+"""data"""
+from autochannel.data.database import DB
 
 log = logging.getLogger('discord')
 
@@ -18,6 +21,8 @@ class AutoChannel(discord.ext.commands.Bot):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        db = DB()
+        self.session = db.session()
         self.app_id = kwargs.get('app_id')
         self.auto_channel_prefix = kwargs.get('auto_channel_prefix')
         self.auto_categories = kwargs.get('auto_categories')
