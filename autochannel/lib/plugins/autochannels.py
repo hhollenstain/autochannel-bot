@@ -90,9 +90,9 @@ class AutoChannels(commands.Cog):
                 if empty_channel_count < db_cat.empty_count:
                     while empty_channel_count < db_cat.empty_count:
                         channel_suffix = self.ac_channel_number(auto_channels)
-                        LOG.debug(f' Channel created {db_cat.prefix} {cat.name.upper()}')
+                        LOG.debug(f' Channel created {db_cat.prefix}')
                         position = channel_suffix + len(cat.text_channels)
-                        await self.ac_create_channel(cat, name=f'{db_cat.prefix} {cat.name.upper()} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
+                        await self.ac_create_channel(cat, name=f'{db_cat.prefix} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
                         empty_channel_count += 1
                         auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
 
@@ -166,7 +166,7 @@ class AutoChannels(commands.Cog):
 
 
         cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category']][0]
-        created_channel = await ctx.guild.create_voice_channel(f'{self.autochannel.voice_channel_prefix} {data["category"]} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
+        created_channel = await ctx.guild.create_voice_channel(f'{self.autochannel.voice_channel_prefix} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
         overwrite = discord.PermissionOverwrite()
         overwrite.manage_channels = True
         overwrite.manage_roles  = True
@@ -222,7 +222,7 @@ class AutoChannels(commands.Cog):
         if empty_channel_count < category.empty_count:
             channel_suffix = self.ac_channel_number(auto_channels)
             position =  channel_suffix + len(cat.text_channels)
-            created_channel = await self.ac_create_channel(cat, name=f'{category.prefix} {cat.name.upper()} - {channel_suffix}', guild=member.guild, position=position, user_limit=category.channel_size)
+            created_channel = await self.ac_create_channel(cat, name=f'{category.prefix} - {channel_suffix}', guild=member.guild, position=position, user_limit=category.channel_size)
             LOG.debug(f'Updating channel: {created_channel.name} to position {position} in category: {created_channel.category.name} ')
 
     async def before_ac_task(self, before, member=None):
