@@ -329,11 +329,11 @@ class AutoChannels(commands.Cog):
         category = None
         number_of_users = 10
         channel_suffix = []
-        gcrequest = gcrequest.lower().split()
+        gcrequest = gcrequest.split()
         data = {}
         for info in gcrequest:
-            if info in server_cats:
-                category = info
+            if info.lower() in server_cats:
+                category = info.lower()
             else:
                 channel_suffix.append(info)
         data['category'] = category
