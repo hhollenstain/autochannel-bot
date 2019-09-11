@@ -165,7 +165,7 @@ class AutoChannels(commands.Cog):
             AC_suffix = self.vc_channel_number(ctx, data)
 
 
-        cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category']][0]
+        cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category'].lower()][0]
         created_channel = await ctx.guild.create_voice_channel(f'{self.autochannel.voice_channel_prefix} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
         overwrite = discord.PermissionOverwrite()
         overwrite.manage_channels = True
@@ -180,7 +180,9 @@ class AutoChannels(commands.Cog):
             try:
                 await self.vc_delete_channel(created_channel, reason='No one joined the custom channel after 60 seconds')
             except:
-                raise ACMissingChannel(f'Channel already deleted')
+                """annoying to see this error doesn't add value to the end user"""
+                pass
+                # raise ACMissingChannel(f'Channel already deleted')
 
     def valid_auto_channel(self, v_state):
         """[summary]
@@ -269,12 +271,6 @@ class AutoChannels(commands.Cog):
         if self.valid_auto_channel(after):
             await self.after_ac_task(after, member=member)
 
-
-        # category = self.autochannel.session.query(Category).get(before.channel.category.id)
-        # if before.channel is not None and before.channel.name.startswith(category.prefix):
-        #     if len(before.channel.members) < 1:
-        #         await before.channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
-
     def ac_channel_number(self, auto_channels):
         """
         returns number from auto prefix and returns the lowest number 
@@ -328,16 +324,18 @@ class AutoChannels(commands.Cog):
         server_cats = self.cat_names(ctx)
         category = None
         number_of_users = 10
-        channel_suffix = []
-        gcrequest = gcrequest.split()
+        channel_suffix = None
+        gcrequest_list = gcrequest.split()
         data = {}
-        for info in gcrequest:
-            if info.lower() in server_cats:
-                category = info.lower()
-            else:
-                channel_suffix.append(info)
+        """ Checking to see if category is in the string of data everything else is channel name"""
+        for cat in server_cats:
+            if cat in gcrequest:
+                category = cat
+        if category:
+            channel_suffix = gcrequest.replace(category, '')
+
         data['category'] = category
-        data['channel_suffix'] = ' '.join(channel_suffix)
+        data['channel_suffix'] = channel_suffix
         data['number_of_users'] = number_of_users
         return data
 
