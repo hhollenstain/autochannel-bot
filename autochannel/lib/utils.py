@@ -77,13 +77,13 @@ async def change_status(client):
 
         while not client.is_closed():
             current_status = next(sts)
-            await client.change_presence(status=discord.Status.idle, activity=Game(name=current_status))
+            await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
             await asyncio.sleep(10)
     else:
         while not client.is_closed():
             guild_count = len(client.guilds)
             current_status = 'Serving {} Discord servers!'.format(guild_count)
-            await client.change_presence(status=discord.Status.idle, activity=Game(name=current_status))
+            await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
             await asyncio.sleep(60)
 
 

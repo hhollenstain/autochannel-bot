@@ -20,6 +20,9 @@ class ACMissingChannel(commands.CommandError):
 class ACUnknownCategory(commands.CommandError):
     """Custom Exception class for unknown category errors."""
 
+class ACDisabledCustomCategory(commands.CommandInvokeError):
+    """Custom Exception class for disabled custom voice category"""
+
 class AutoChannels(commands.Cog):
     """
     """
@@ -159,14 +162,19 @@ class AutoChannels(commands.Cog):
         data =  await self.parse(ctx, gcrequest )
         if data['category'] is None:
             raise ACUnknownCategory(f'Unknown Discord category')
+
+        cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category'].lower()][0]
+        category = self.autochannel.session.query(Category).get(cat_name.id)
+
         if data['channel_suffix']:
             AC_suffix = data['channel_suffix']
         else:
-            AC_suffix = self.vc_channel_number(ctx, data)
+            AC_suffix = self.vc_channel_number(ctx, data, category)
 
-
-        cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category']][0]
-        created_channel = await ctx.guild.create_voice_channel(f'{self.autochannel.voice_channel_prefix} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
+        if not category.custom_enabled:
+            raise ACDisabledCustomCategory(f'Category {cat_name.name} is disabled to use custom channels')
+        
+        created_channel = await ctx.guild.create_voice_channel(f'{category.custom_prefix} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
         overwrite = discord.PermissionOverwrite()
         overwrite.manage_channels = True
         overwrite.manage_roles  = True
@@ -180,7 +188,9 @@ class AutoChannels(commands.Cog):
             try:
                 await self.vc_delete_channel(created_channel, reason='No one joined the custom channel after 60 seconds')
             except:
-                raise ACMissingChannel(f'Channel already deleted')
+                """annoying to see this error doesn't add value to the end user"""
+                pass
+                # raise ACMissingChannel(f'Channel already deleted')
 
     def valid_auto_channel(self, v_state):
         """[summary]
@@ -257,10 +267,13 @@ class AutoChannels(commands.Cog):
         """
         if(
                     before.channel is not None and
-                    before.channel.name.startswith(self.autochannel.voice_channel_prefix) and
+                    before.channel.category is not None and
                     len(before.channel.members) < 1
         ):  
-            await self.vc_delete_channel(before.channel, reason="now empty")
+            #startswith(f'{self.autochannel.voice_channel_prefix} {data["category"]}'):
+            category = self.autochannel.session.query(Category).get(before.channel.category_id)
+            if category and before.channel.name.startswith(f'{category.custom_prefix}'):
+                await self.vc_delete_channel(before.channel, reason="now empty")
 
         LOG.debug(self.valid_auto_channel(before))
         if self.valid_auto_channel(before):
@@ -268,12 +281,6 @@ class AutoChannels(commands.Cog):
         LOG.debug(self.valid_auto_channel(after))
         if self.valid_auto_channel(after):
             await self.after_ac_task(after, member=member)
-
-
-        # category = self.autochannel.session.query(Category).get(before.channel.category.id)
-        # if before.channel is not None and before.channel.name.startswith(category.prefix):
-        #     if len(before.channel.members) < 1:
-        #         await before.channel.delete(reason='AutoChannel does not like unused channels cluttering up his 720 display')
 
     def ac_channel_number(self, auto_channels):
         """
@@ -297,14 +304,14 @@ class AutoChannels(commands.Cog):
         """
         return int(''.join(auto_channel.name.split(' ')[-1:]))
 
-    def vc_channel_number(self, ctx, data):
+    def vc_channel_number(self, ctx, data, category):
         """
         returns the length of channel numbers 
         :param: object self: discord client 
         :param: object ctx: contex 
         :param: dictionary data: contains data information to utilize 
         """
-        ac_channels = [vc for vc in ctx.guild.voice_channels if vc.name.startswith(f'{self.autochannel.voice_channel_prefix} {data["category"]}')]
+        ac_channels = [vc for vc in ctx.guild.voice_channels if str(vc.category).lower().startswith(f'{data["category"]}') and vc.name.startswith(category.custom_prefix)]
         return (len(ac_channels) + 1)
 
     async def ac_invite(self, ctx, created_channel):
@@ -328,16 +335,18 @@ class AutoChannels(commands.Cog):
         server_cats = self.cat_names(ctx)
         category = None
         number_of_users = 10
-        channel_suffix = []
-        gcrequest = gcrequest.split()
+        channel_suffix = None
+        gcrequest_list = gcrequest.split()
         data = {}
-        for info in gcrequest:
-            if info.lower() in server_cats:
-                category = info.lower()
-            else:
-                channel_suffix.append(info)
+        """ Checking to see if category is in the string of data everything else is channel name"""
+        for cat in server_cats:
+            if cat in gcrequest:
+                category = cat
+        if category:
+            channel_suffix = gcrequest.replace(category, '')
+
         data['category'] = category
-        data['channel_suffix'] = ' '.join(channel_suffix)
+        data['channel_suffix'] = channel_suffix
         data['number_of_users'] = number_of_users
         return data
 

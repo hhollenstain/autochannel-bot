@@ -9,6 +9,8 @@ class Category(db.Model):
     prefix = db.Column(db.String(10), unique=False, nullable=False, default='AC!')
     empty_count = db.Column(db.Integer, default=1, nullable=False)
     channel_size = db.Column(db.Integer, default=10, nullable=False)
+    custom_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    custom_prefix = db.Column(db.String(10), unique=False, nullable=False, default='VC!')
     
 class Guild(db.Model):
     __tablename__ = 'guild'
@@ -27,5 +29,7 @@ class Guild(db.Model):
             cats[category.id]['enabled'] = category.enabled
             cats[category.id]['channel_size'] = category.channel_size
             cats[category.id]['empty_count'] = category.empty_count
+            cats[category.id]['custom_enabled'] = category.custom_enabled
+            cats[category.id]['custom_prefix'] = category.custom_prefix
         
         return cats
