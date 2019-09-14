@@ -54,7 +54,7 @@ class Server(commands.Cog):
         embed.set_author(name='AutoChannel Bot')
         embed.set_thumbnail(url=avatar)
         embed.add_field(name='description', value=f'AutoChannel is a WIP, add AutoChannel bot to your server! [add me](http://autochannel.xyz)', inline=True)
-        embed.add_field(name='Source Code', value=f'Want to see what makes me run? [Source Code Here!](https://github.com/hhollenstain/autochannel-bot)', inline=True)
+        # embed.add_field(name='Source Code', value=f'Want to see what makes me run? [Source Code Here!](https://github.com/hhollenstain/autochannel-bot)', inline=True)
         embed.add_field(name='Version', value=VERSION, inline=True)
 
         await ctx.send(embed=embed)
