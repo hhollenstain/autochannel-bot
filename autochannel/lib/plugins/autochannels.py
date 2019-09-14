@@ -103,8 +103,8 @@ class AutoChannels(commands.Cog):
                     while len(empty_channel_list) > db_cat.empty_count:
                         highest_empty_channel = self.ac_highest_empty_channel(empty_channel_list)
                         empty_channel_list.pop(empty_channel_list.index(highest_empty_channel))
+                        LOG.debug(f'Deleting too many empty channels form {server.name}: {highest_empty_channel}')
                         await self.ac_delete_channel(highest_empty_channel, guild=server.name)
-                    LOG.info(f'TOO MANY CHANNELS in {cat.name}')
 
     def ac_highest_empty_channel(self, empty_auto_channels):
         """[summary]
