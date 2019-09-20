@@ -7,12 +7,15 @@ import random
 from datadog import ThreadStats
 from discord import Game
 from discord.ext import commands
+from profanityfilter import ProfanityFilter
 """AC imports"""
 from autochannel.lib import discordDog, utils
 from autochannel.lib.discordDog import DDAgent
 from autochannel.data.models import Guild, Category
 
 LOG = logging.getLogger(__name__)
+
+pf = ProfanityFilter(no_word_boundaries = True)
 
 class ACMissingChannel(commands.CommandError):
     """Custom Exception class for unknown category errors."""
@@ -22,6 +25,9 @@ class ACUnknownCategory(commands.CommandError):
 
 class ACDisabledCustomCategory(commands.CommandInvokeError):
     """Custom Exception class for disabled custom voice category"""
+
+class VCProfaneWordused(commands.CommandInvokeError):
+    """custom Exception class for profane word use""" 
 
 class AutoChannels(commands.Cog):
     """
@@ -48,7 +54,7 @@ class AutoChannels(commands.Cog):
     @discordDog.dd_task_count
     async def vc_delete_channel(self, voicechannel, **kwargs):
         """
-        insert logic to datadog metrics
+        insert logic to datadog metrics 
         """
         reason = kwargs.get('reason')
         await voicechannel.delete(reason=reason)
@@ -168,6 +174,8 @@ class AutoChannels(commands.Cog):
 
         if data['channel_suffix']:
             AC_suffix = data['channel_suffix']
+            if pf.is_profane(AC_suffix):
+                raise VCProfaneWordused(f'Used a profane word when creating a custom voice channel')
         else:
             AC_suffix = self.vc_channel_number(ctx, data, category)
 
@@ -388,6 +396,8 @@ class AutoChannels(commands.Cog):
         )
         if isinstance(error, ACUnknownCategory):
             msg = 'Unkonwn category, please type in an existing category in this Server'
+        if isinstance(error, VCProfaneWordused):
+            msg = 'Auto-chan hates bad words, please be nice'
         else:
             msg = error
         embed.add_field(name='Error', value=msg)

@@ -12,6 +12,7 @@ INSTALL_REQUIREMENTS = [
     'discord.py==1.2.3',
     'flask_sqlalchemy',
     'pip==18.0',
+    'profanityfilter',
     'psycopg2-binary',
     'pyyaml',
     'requests==2.21.0',
