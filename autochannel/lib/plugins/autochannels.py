@@ -4,6 +4,7 @@ import datadog
 import discord
 import logging
 import random
+import re
 from datadog import ThreadStats
 from discord import Game
 from discord.ext import commands
@@ -156,8 +157,6 @@ class AutoChannels(commands.Cog):
         await self.manage_auto_voice_channels(self.autochannel, guild=ctx.guild)
         await ctx.send(embed=embed)
 
-
-
     @commands.command(name='vc', aliases=['gc'])
     @discordDog.dd_command_count
     async def vc(self, ctx, *, gcrequest: str=''):
@@ -183,10 +182,10 @@ class AutoChannels(commands.Cog):
             raise ACDisabledCustomCategory(f'Category {cat_name.name} is disabled to use custom channels')
         
         created_channel = await ctx.guild.create_voice_channel(f'{category.custom_prefix} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
-        overwrite = discord.PermissionOverwrite()
-        overwrite.manage_channels = True
-        overwrite.manage_roles  = True
-        await created_channel.set_permissions(ctx.message.author, overwrite=overwrite)
+        # overwrite = discord.PermissionOverwrite()
+        # overwrite.manage_channels = True
+        # overwrite.manage_roles  = True
+        # await created_channel.set_permissions(ctx.message.author, overwrite=overwrite)
         invite_link = await self.ac_invite(ctx, created_channel)
 
         await ctx.send(f'AutoChannel made `{ctx.author}` a channel `{created_channel.name}`')
@@ -198,7 +197,6 @@ class AutoChannels(commands.Cog):
             except:
                 """annoying to see this error doesn't add value to the end user"""
                 pass
-                # raise ACMissingChannel(f'Channel already deleted')
 
     def valid_auto_channel(self, v_state):
         """[summary]
@@ -278,7 +276,6 @@ class AutoChannels(commands.Cog):
                     before.channel.category is not None and
                     len(before.channel.members) < 1
         ):  
-            #startswith(f'{self.autochannel.voice_channel_prefix} {data["category"]}'):
             category = self.autochannel.session.query(Category).get(before.channel.category_id)
             if category and before.channel.name.startswith(f'{category.custom_prefix}'):
                 await self.vc_delete_channel(before.channel, reason="now empty")
@@ -348,10 +345,11 @@ class AutoChannels(commands.Cog):
         data = {}
         """ Checking to see if category is in the string of data everything else is channel name"""
         for cat in server_cats:
-            if cat in gcrequest:
+            if cat in gcrequest.lower():
                 category = cat
         if category:
-            channel_suffix = gcrequest.replace(category, '')
+            category_remove = re.compile(re.escape(category), re.IGNORECASE)
+            channel_suffix = category_remove.sub('', gcrequest)
 
         data['category'] = category
         data['channel_suffix'] = channel_suffix
@@ -381,6 +379,9 @@ class AutoChannels(commands.Cog):
         if isinstance(error, commands.MissingPermissions):
             embed.title = 'Insufficient permissions'
             msg = 'Contact an admin for help.'
+        if isinstance(error, commands.CommandInvokeError):
+            embed.titls = 'Insufficent permissions'
+            msg = 'Server is setup incorrect for mange_channel permissions for Auto-chan'
         else:
             msg = error
         embed.add_field(name='Error', value=msg)
