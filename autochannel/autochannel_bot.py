@@ -53,7 +53,6 @@ def main():
     logging.getLogger('discord').setLevel(l_level)
     logging.getLogger('websockets.protocol').setLevel(l_level)
     logging.getLogger('urllib3').setLevel(l_level)
-    logging.getLogger('datadog').setLevel(l_level)
 
     LOG.info("LONG LIVE AutoChannel bot")
     autochannel = AutoChannel(shard_id=int(SHARD), shard_count=int(SHARD_COUNT),

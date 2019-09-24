@@ -1,12 +1,10 @@
 import asyncio
 import datetime
-import datadog
 import discord
 import logging
 import random
 import re
 import time
-from datadog import ThreadStats
 from discord import Game
 from discord.ext import commands
 from profanityfilter import ProfanityFilter
