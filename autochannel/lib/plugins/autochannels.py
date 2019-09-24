@@ -5,13 +5,14 @@ import discord
 import logging
 import random
 import re
+import time
 from datadog import ThreadStats
 from discord import Game
 from discord.ext import commands
 from profanityfilter import ProfanityFilter
 """AC imports"""
-from autochannel.lib import discordDog, utils
-from autochannel.lib.discordDog import DDAgent
+from autochannel.lib import utils
+from autochannel.lib.metrics import command_metrics_counter, task_metrics_counter, COMMAND_SUMMARY_VC, COMMAND_SUMMARY_ACUPDATE
 from autochannel.data.models import Guild, Category
 
 LOG = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class AutoChannels(commands.Cog):
         self.autochannel = autochannel
         self.stats = autochannel.stats
 
-    @discordDog.dd_task_count
+    @task_metrics_counter
     async def ac_delete_channel(self, autochannel, **kwargs):
         """
         insert logic to datadog metrics
@@ -45,14 +46,14 @@ class AutoChannels(commands.Cog):
         reason = kwargs.get('reason')
         await autochannel.delete(reason=reason)
 
-    @discordDog.dd_task_count
+    @task_metrics_counter
     async def ac_create_channel(self, cat, name=None, **kwargs):
         """
         """
         created_channel = await cat.create_voice_channel(name, **kwargs)
         return created_channel
 
-    @discordDog.dd_task_count
+    @task_metrics_counter
     async def vc_delete_channel(self, voicechannel, **kwargs):
         """
         insert logic to datadog metrics 
@@ -141,7 +142,8 @@ class AutoChannels(commands.Cog):
 
     @commands.command()
     @commands.has_permissions(administrator=True)
-    @discordDog.dd_command_count
+    @command_metrics_counter
+    @COMMAND_SUMMARY_ACUPDATE.time()
     async def acupdate(self, ctx):
         """
         
@@ -158,7 +160,7 @@ class AutoChannels(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name='vc', aliases=['gc'])
-    @discordDog.dd_command_count
+    @command_metrics_counter
     async def vc(self, ctx, *, gcrequest: str=''):
         """
         create voice channel vc <category> [optional suffix]
@@ -258,7 +260,7 @@ class AutoChannels(commands.Cog):
                 LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
                 await self.ac_delete_channel(highest_empty_channel, reason='AutoChannel does not like unused channels cluttering up his 720 display', guild=member.guild)
 
-    @discordDog.dd_task_count
+    @task_metrics_counter
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         """
