@@ -178,8 +178,8 @@ class AutoChannels(commands.Cog):
         else:
             AC_suffix = self.vc_channel_number(ctx, data, category)
 
-        if not category.custom_enabled:
-            raise ACDisabledCustomCategory(f'Category {cat_name.name} is disabled to use custom channels')
+        if not category or not category.custom_enabled:
+            raise ACDisabledCustomCategory(f'Category {cat_name.name} is disabled. To use custom channels in this category an **ADMIN** must enable:  http://auto-chan.io')
         
         created_channel = await ctx.guild.create_voice_channel(f'{category.custom_prefix} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
         # overwrite = discord.PermissionOverwrite()
@@ -396,7 +396,7 @@ class AutoChannels(commands.Cog):
             colour = discord.Colour.red()
         )
         if isinstance(error, ACUnknownCategory):
-            msg = 'Unkonwn category, please type in an existing category in this Server'
+            msg = 'Unkown category, please type in an existing category in this Server'
         if isinstance(error, VCProfaneWordused):
             msg = 'Auto-chan hates bad words, please be nice'
         else:
