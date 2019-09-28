@@ -400,7 +400,7 @@ class AutoChannels(commands.Cog):
 
         if isinstance(error, ACUnknownCategory):
             existing_cats = self.cat_names(ctx)
-            msg = f'Unkown category: use the comman **!vc <category> <name of channel>** from the category list: {existing_cats}'
+            msg = f'**Unkown category:** How-To: `!vc <category> <name of channel>`   **Category list:** {existing_cats}'
         if isinstance(error, VCProfaneWordused):
             msg = 'Auto-chan hates bad words, please be nice'
             
