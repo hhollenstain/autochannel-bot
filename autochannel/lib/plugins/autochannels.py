@@ -376,14 +376,15 @@ class AutoChannels(commands.Cog):
             title = 'AutoChannel error',
             colour = discord.Colour.red()
         )
+        msg = error
+
         if isinstance(error, commands.MissingPermissions):
             embed.title = 'Insufficient permissions'
             msg = 'Contact an admin for help.'
         if isinstance(error, commands.CommandInvokeError):
             embed.titls = 'Insufficent permissions'
             msg = 'Server is setup incorrect for mange_channel permissions for Auto-chan'
-        else:
-            msg = error
+            
         embed.add_field(name='Error', value=msg)
         await ctx.send(embed=embed)
 
@@ -395,12 +396,14 @@ class AutoChannels(commands.Cog):
             title = 'AutoChannel error',
             colour = discord.Colour.red()
         )
+        msg = error
+
         if isinstance(error, ACUnknownCategory):
-            msg = 'Unkown category, please type in an existing category in this Server'
+            existing_cats = self.cat_names(ctx)
+            msg = f'Unkown category: use the comman **!vc <category> <name of channel>** from the category list: {existing_cats}'
         if isinstance(error, VCProfaneWordused):
             msg = 'Auto-chan hates bad words, please be nice'
-        else:
-            msg = error
+            
         embed.add_field(name='Error', value=msg)
         await ctx.send(embed=embed)
 
