@@ -47,7 +47,6 @@ class AutoChannels(commands.Cog):
     async def ac_create_channel(self, cat, name=None, **kwargs):
         """
         """
-        time.sleep(1)
         created_channel = await cat.create_voice_channel(name, **kwargs)
         return created_channel
 
@@ -102,6 +101,7 @@ class AutoChannels(commands.Cog):
                         channel_suffix = self.ac_channel_number(auto_channels)
                         LOG.debug(f' Channel created {db_cat.prefix}') 
                         position = channel_suffix + len(cat.text_channels)
+                        time.sleep(1)
                         await self.ac_create_channel(cat, name=f'{db_cat.prefix} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
                         empty_channel_count += 1
                         auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
