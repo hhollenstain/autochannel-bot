@@ -14,7 +14,6 @@ from autochannel.lib.metrics import command_metrics_counter, task_metrics_counte
 from autochannel.data.models import Guild, Category
 
 LOG = logging.getLogger(__name__)
-
 pf = ProfanityFilter(no_word_boundaries = True)
 
 class ACMissingChannel(commands.CommandError):
@@ -48,6 +47,7 @@ class AutoChannels(commands.Cog):
     async def ac_create_channel(self, cat, name=None, **kwargs):
         """
         """
+        time.sleep(1)
         created_channel = await cat.create_voice_channel(name, **kwargs)
         return created_channel
 
@@ -82,6 +82,7 @@ class AutoChannels(commands.Cog):
                     auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
                     for channel in auto_channels:
                         await self.ac_delete_channel(channel, guild=server.name)
+                        time.sleep(2)
             
             categories = [cat for cat in server.categories if cat.id in db_cats]
             """checking if the db knows about the categorey"""
@@ -99,7 +100,7 @@ class AutoChannels(commands.Cog):
                 if empty_channel_count < db_cat.empty_count:
                     while empty_channel_count < db_cat.empty_count:
                         channel_suffix = self.ac_channel_number(auto_channels)
-                        LOG.debug(f' Channel created {db_cat.prefix}')
+                        LOG.debug(f' Channel created {db_cat.prefix}') 
                         position = channel_suffix + len(cat.text_channels)
                         await self.ac_create_channel(cat, name=f'{db_cat.prefix} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
                         empty_channel_count += 1
@@ -111,6 +112,7 @@ class AutoChannels(commands.Cog):
                         empty_channel_list.pop(empty_channel_list.index(highest_empty_channel))
                         LOG.debug(f'Deleting too many empty channels form {server.name}: {highest_empty_channel}')
                         await self.ac_delete_channel(highest_empty_channel, guild=server.name)
+                        time.sleep(2)
 
     def ac_highest_empty_channel(self, empty_auto_channels):
         """[summary]
