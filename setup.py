@@ -8,6 +8,7 @@ INSTALL_REQUIREMENTS = [
     'asyncio',
     'aiomeasures',
     'coloredlogs',
+    'dblpy',
     'discord.py==1.2.3',
     'flask_sqlalchemy',
     'pip==18.0',
