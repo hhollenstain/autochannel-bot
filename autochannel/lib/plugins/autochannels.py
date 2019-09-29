@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import discord
 import logging
+import queue 
 import random
 import re
 import time
@@ -34,6 +35,39 @@ class AutoChannels(commands.Cog):
     def __init__(self, autochannel):
         self.autochannel = autochannel
         self.stats = autochannel.stats
+        self.queue = asyncio.Queue()
+        self.next = asyncio.Event()
+
+
+        self.autochannel.loop.create_task(self.queue_loop())
+
+    async def queue_loop(self):
+        """Our main player loop."""
+        await self.autochannel.wait_until_ready()
+
+        while not self.autochannel.is_closed():
+
+
+            await asyncio.sleep(2)
+            task = await self.queue.get()
+            LOG.info(task)
+
+            if not task.get('type'):
+                self.autochannel.loop.call_soon_threadsafe(self.next.set)
+                continue
+
+            if task['type'] is 'ac_create_channel':
+                LOG.info(f'queue task: ac_create_channel: {task}')
+                await self.ac_create_channel(task['cat'], 
+                                             name=task['name'], 
+                                             guild=task['guild'], 
+                                             position=task['position'], 
+                                             user_limit=task['user_limit']
+                                             )
+
+            self.autochannel.loop.call_soon_threadsafe(self.next.set)
+            await self.next.wait()
+
 
     @task_metrics_counter
     async def ac_delete_channel(self, autochannel, **kwargs):
@@ -47,6 +81,32 @@ class AutoChannels(commands.Cog):
     async def ac_create_channel(self, cat, name=None, **kwargs):
         """
         """
+        db_cat = self.autochannel.session.query(Category).get(cat.id) db_cat = self.autochannel.session.query(Category).get(cat.id)
+        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+        empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
+        """ need a list of empty channels to decide wat to clean up """
+        empty_channel_count = len(empty_channel_list)
+
+
+        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+        channel_suffix = self.ac_channel_number(auto_channels)
+        LOG.debug(f' Channel created {db_cat.prefix}') 
+        position = channel_suffix + len(cat.text_channels)
+        time.sleep(.5)
+        chan_name = f'{db_cat.prefix} - {channel_suffix}'
+        # q_object = {
+        #         'cat': cat, 
+        #         'name': chan_name, 
+        #         'guild': server.name, 
+        #         'position': position, 
+        #         'user_limit': db_cat.channel_size,
+        #         'type': 'ac_create_channel'
+        #     }
+        # LOG.info(q_object)
+        # await self.queue.put(q_object)
+        # await self.ac_create_channel(cat, name=chan_name, guild=server.name, position=position, user_limit=db_cat.channel_size)
+
+
         created_channel = await cat.create_voice_channel(name, **kwargs)
         return created_channel
 
@@ -86,7 +146,7 @@ class AutoChannels(commands.Cog):
             categories = [cat for cat in server.categories if cat.id in db_cats]
             """checking if the db knows about the categorey"""
             for cat in categories:
-                db_cat = self.autochannel.session.query(Category).get(cat.id)
+                db_cat = self.autochannel.session.query(Category).get(cat.id) db_cat = self.autochannel.session.query(Category).get(cat.id)
                 auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
                 empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
                 """ need a list of empty channels to decide wat to clean up """
@@ -101,10 +161,22 @@ class AutoChannels(commands.Cog):
                         channel_suffix = self.ac_channel_number(auto_channels)
                         LOG.debug(f' Channel created {db_cat.prefix}') 
                         position = channel_suffix + len(cat.text_channels)
-                        time.sleep(1)
-                        await self.ac_create_channel(cat, name=f'{db_cat.prefix} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
+                        time.sleep(.5)
+                        chan_name = f'{db_cat.prefix} - {channel_suffix}'
+                        q_object = {
+                                'cat': cat, 
+                                'name': chan_name, 
+                                'guild': server.name, 
+                                'position': position, 
+                                'user_limit': db_cat.channel_size,
+                                'type': 'ac_create_channel'
+                            }
+                        LOG.info(q_object)
+                        await self.queue.put(q_object)
+                        # await self.ac_create_channel(cat, name=chan_name, guild=server.name, position=position, user_limit=db_cat.channel_size)
                         empty_channel_count += 1
                         auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+                LOG.info(self.queue)
 
                 if empty_channel_count > 1:
                     while len(empty_channel_list) > db_cat.empty_count:

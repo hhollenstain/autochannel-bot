@@ -22,6 +22,7 @@ from autochannel.data.models import Guild, Category
 
 EXTENSIONS = [
     'autochannels',
+    'dbl',
     'help',
     'server',
     ]
@@ -30,6 +31,7 @@ LOG = logging.getLogger(__name__)
 
 APP_ID = os.getenv('APP_ID') or 'fakeid'
 BOT_PREFIX = ("?", "!")
+DBL_TOKEN = os.getenv('DBL_TOKEN') or None
 SHARD = os.getenv('SHARD') or 0
 SHARD_COUNT = os.getenv('SHARD_COUNT') or 1
 TOKEN = os.getenv('TOKEN')
@@ -59,7 +61,7 @@ def main():
     autochannel = AutoChannel(shard_id=int(SHARD), shard_count=int(SHARD_COUNT),
                     command_prefix=BOT_PREFIX, app_id=APP_ID, voice_channel_prefix=VOICE_CHANNEL_PREFIX,
                     auto_channel_prefix=AUTO_CHANNEL_PREFIX, auto_categories=AUTO_CATEGORIES,
-                    env=ENV)
+                    env=ENV, dbl_token=DBL_TOKEN)
 
     for extension in EXTENSIONS:
         plugin.load('autochannel.lib.plugins.{}'.format(extension), autochannel)
