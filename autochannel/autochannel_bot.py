@@ -22,7 +22,7 @@ from autochannel.data.models import Guild, Category
 
 EXTENSIONS = [
     'autochannels',
-    'dbl',
+    'ac_dbl',
     'help',
     'server',
     ]

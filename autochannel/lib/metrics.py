@@ -9,6 +9,15 @@ COMMAND_SUMMARY_VC = Summary('command_vc', 'Time spent processing request')
 COMMAND_SUMMARY_ACUPDATE = Summary('command_acupdate', 'Time spent processing request')
 COMMAND_COUNT = Counter('command_count', 'time command was invoked', ['guild', 'command'])
 TASK_COUNT = Counter('task_count', 'time command was invoked', ['guild', 'task'])
+QUEUE_COUNT = Gauge('autochan_queue_count', 'Number of events in queue')
+
+def queue_stats_gauge(num_of_events):
+    """[summary]
+    
+    Arguments:
+        num_of_events {[type]} -- [description]
+    """
+    QUEUE_COUNT.set(num_of_events)   
 
 def command_metrics_counter(f):
     """[summary]
