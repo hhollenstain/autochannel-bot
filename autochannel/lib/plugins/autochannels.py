@@ -54,7 +54,7 @@ class AutoChannels(commands.Cog):
 
         while not self.autochannel.is_closed():
             LOG.info(f'QUEUE SIZE: {self.queue.qsize()}')
-            await asyncio.sleep(.25)
+            await asyncio.sleep(.1)
             task = await self.queue.get()
             LOG.info(task)
 
