@@ -163,6 +163,7 @@ class AutoChannels(commands.Cog):
                                 'type': 'ac_delete_channel',
                                 'force': True,
                             }
+                        LOG.debug(f'Adding to queue: {q_object}')
                         await self.queue.put(q_object)
             
             categories = [cat for cat in server.categories if cat.id in db_cats]
@@ -185,7 +186,7 @@ class AutoChannels(commands.Cog):
                                 'guild': server.name, 
                                 'type': 'ac_create_channel'
                             }
-                        LOG.info(f'queue object added: {q_object}')
+                        LOG.debug(f'Adding to queue: {q_object}')
                         await self.queue.put(q_object)
                         empty_channel_count += 1
 
@@ -196,7 +197,7 @@ class AutoChannels(commands.Cog):
                                 'cat': cat, 
                                 'guild': server.name, 
                                 'type': 'ac_delete_channel',
-                                'force': False,
+                                'force': True,
                             }
                         LOG.info('test')
                         await self.queue.put(q_object)
