@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import discord
 import logging
+import queue 
 import random
 import re
 import time
@@ -10,7 +11,7 @@ from discord.ext import commands
 from profanityfilter import ProfanityFilter
 """AC imports"""
 from autochannel.lib import utils
-from autochannel.lib.metrics import command_metrics_counter, task_metrics_counter, COMMAND_SUMMARY_VC, COMMAND_SUMMARY_ACUPDATE
+from autochannel.lib.metrics import command_metrics_counter, task_metrics_counter, queue_stats_gauge, COMMAND_SUMMARY_ACUPDATE
 from autochannel.data.models import Guild, Category
 
 LOG = logging.getLogger(__name__)
@@ -34,20 +35,96 @@ class AutoChannels(commands.Cog):
     def __init__(self, autochannel):
         self.autochannel = autochannel
         self.stats = autochannel.stats
+        self.queue = asyncio.Queue()
+        self.next = asyncio.Event()
+
+        self.autochannel.loop.create_task(self.queue_loop())
+        self.autochannel.loop.create_task(self.loop_stats())
+
+    async def loop_stats(self):
+        """Loop to track event queue size"""
+        while not self.autochannel.is_closed():
+            LOG.debug(f'UPDATING QUEUE STATS {self.queue.qsize()}')
+            queue_stats_gauge(self.queue.qsize())
+            await asyncio.sleep(3)
+
+    async def queue_loop(self):
+        """Our main task loop."""
+        await self.autochannel.wait_until_ready()
+
+        while not self.autochannel.is_closed():
+            LOG.info(f'QUEUE SIZE: {self.queue.qsize()}')
+            await asyncio.sleep(.25)
+            task = await self.queue.get()
+            LOG.info(task)
+
+            if not task.get('type'):
+                self.autochannel.loop.call_soon_threadsafe(self.next.set)
+                continue
+
+            LOG.info(f'Running queue Task: {task}')
+            try: 
+                if task['type'] is 'ac_create_channel':
+                    await self.ac_create_channel(task['cat'], 
+                                                guild=task['guild'], 
+                                                )
+
+                if task['type'] is 'ac_delete_channel':
+                    await self.ac_delete_channel(task['cat'], 
+                                                guild=task['guild'], 
+                                                force=task['force'],
+                                                )
+            except:
+                pass
+
+            self.autochannel.loop.call_soon_threadsafe(self.next.set)
+            await self.next.wait()
+
 
     @task_metrics_counter
-    async def ac_delete_channel(self, autochannel, **kwargs):
+    async def ac_delete_channel(self, cat, force, **kwargs):
         """
         insert logic to datadog metrics
         """
-        reason = kwargs.get('reason')
-        await autochannel.delete(reason=reason)
+
+        category = self.autochannel.session.query(Category).get(cat.id)
+
+        if force:
+            auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix)]
+            highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
+            LOG.debug(f'force deleting auto-channel: {highest_empty_channel.name}')
+            await highest_empty_channel.delete(reason='Auto-chan keeping a tidy house')
+        else:
+            auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix) and len(channel.members) < 1]
+            LOG.debug(f'empty autochannels for {cat.name}: {auto_channels}')
+            empty_channel_count = len(auto_channels)
+            if empty_channel_count > category.empty_count:
+                highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
+                LOG.debug(f'deleting auto-channel: {highest_empty_channel.name}')
+                await highest_empty_channel.delete(reason='Auto-chan keeping a tidy house')
+            else:
+                LOG.debug (f'GUILD: {cat.guild.name} CAT: {cat.name} : No more channels to clean up')           
 
     @task_metrics_counter
-    async def ac_create_channel(self, cat, name=None, **kwargs):
+    async def ac_create_channel(self, cat, **kwargs):
         """
         """
-        created_channel = await cat.create_voice_channel(name, **kwargs)
+        
+        db_cat = self.autochannel.session.query(Category).get(cat.id)
+        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+        empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
+        """ need a list of empty channels to decide whatt to clean up """
+        empty_channel_count = len(empty_channel_list)
+        if empty_channel_count < db_cat.empty_count:
+            channel_suffix = self.ac_channel_number(auto_channels)
+            LOG.debug(f' Channel created {db_cat.prefix}') 
+            position = channel_suffix + len(cat.text_channels)
+            chan_name = f'{db_cat.prefix} - {channel_suffix}'
+            created_channel = await cat.create_voice_channel(chan_name, position=position, user_limit=db_cat.channel_size)
+        else:
+            LOG.debug(f'Skipping channel AC create due to no longer needed')
+            return None
+
         return created_channel
 
     @task_metrics_counter
@@ -80,13 +157,19 @@ class AutoChannels(commands.Cog):
                     db_cat = self.autochannel.session.query(Category).get(cat.id)
                     auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
                     for channel in auto_channels:
-                        await self.ac_delete_channel(channel, guild=server.name)
-                        time.sleep(2)
+                        q_object = {
+                                'cat': cat, 
+                                'guild': server.name, 
+                                'type': 'ac_delete_channel',
+                                'force': True,
+                            }
+                        LOG.debug(f'Adding to queue: {q_object}')
+                        await self.queue.put(q_object)
             
             categories = [cat for cat in server.categories if cat.id in db_cats]
             """checking if the db knows about the categorey"""
             for cat in categories:
-                db_cat = self.autochannel.session.query(Category).get(cat.id)
+                db_cat = self.autochannel.session.query(Category).get(cat.id) 
                 auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
                 empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
                 """ need a list of empty channels to decide wat to clean up """
@@ -94,25 +177,31 @@ class AutoChannels(commands.Cog):
                 LOG.debug(f'GUILD: {server.name} category: {cat.name} empty channel count {empty_channel_count}')
 
                 """
-                Maybe split this into another function???
+                Adding new channels in queue to be processed
                 """
                 if empty_channel_count < db_cat.empty_count:
                     while empty_channel_count < db_cat.empty_count:
-                        channel_suffix = self.ac_channel_number(auto_channels)
-                        LOG.debug(f' Channel created {db_cat.prefix}') 
-                        position = channel_suffix + len(cat.text_channels)
-                        time.sleep(1)
-                        await self.ac_create_channel(cat, name=f'{db_cat.prefix} - {channel_suffix}', guild=server.name, position=position, user_limit=db_cat.channel_size)
+                        q_object = {
+                                'cat': cat, 
+                                'guild': server.name, 
+                                'type': 'ac_create_channel'
+                            }
+                        LOG.debug(f'Adding to queue: {q_object}')
+                        await self.queue.put(q_object)
                         empty_channel_count += 1
-                        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+
 
                 if empty_channel_count > 1:
-                    while len(empty_channel_list) > db_cat.empty_count:
-                        highest_empty_channel = self.ac_highest_empty_channel(empty_channel_list)
-                        empty_channel_list.pop(empty_channel_list.index(highest_empty_channel))
-                        LOG.debug(f'Deleting too many empty channels form {server.name}: {highest_empty_channel}')
-                        await self.ac_delete_channel(highest_empty_channel, guild=server.name)
-                        time.sleep(2)
+                    while empty_channel_count > db_cat.empty_count:
+                        q_object = {
+                                'cat': cat, 
+                                'guild': server.name, 
+                                'type': 'ac_delete_channel',
+                                'force': True,
+                            }
+                        LOG.info('test')
+                        await self.queue.put(q_object)
+                        empty_channel_count -= 1
 
     def ac_highest_empty_channel(self, empty_auto_channels):
         """[summary]
@@ -238,10 +327,14 @@ class AutoChannels(commands.Cog):
         auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix)]
         empty_channel_count = len([channel for channel in auto_channels if  len(channel.members) < 1])
         if empty_channel_count < category.empty_count:
-            channel_suffix = self.ac_channel_number(auto_channels)
-            position =  channel_suffix + len(cat.text_channels)
-            created_channel = await self.ac_create_channel(cat, name=f'{category.prefix} - {channel_suffix}', guild=member.guild, position=position, user_limit=category.channel_size)
-            LOG.debug(f'Updating channel: {created_channel.name} to position {position} in category: {created_channel.category.name} ')
+            q_object = {
+                'cat': cat, 
+                'guild': cat.guild.name, 
+                'type': 'ac_create_channel'
+            }
+            LOG.info(f'queue object added: {q_object}')
+            await self.queue.put(q_object)
+            
 
     async def before_ac_task(self, before, member=None):
         """
@@ -256,9 +349,14 @@ class AutoChannels(commands.Cog):
             LOG.debug(f'empty autochannels for {cat.name}: {auto_channels}')
             empty_channel_count = len(auto_channels)
             if empty_channel_count > category.empty_count:
-                highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
-                LOG.debug(f'last channel DC {before.channel.name}, but highest empty channel number is {highest_empty_channel.name}')
-                await self.ac_delete_channel(highest_empty_channel, reason='AutoChannel does not like unused channels cluttering up his 720 display', guild=member.guild)
+                q_object = {
+                        'cat': cat, 
+                        'guild': cat.guild.name, 
+                        'type': 'ac_delete_channel',
+                        'force': False,
+                    }
+                LOG.info(f'queue object added: {q_object}')
+                await self.queue.put(q_object)
 
     @task_metrics_counter
     @commands.Cog.listener()

@@ -10,6 +10,7 @@ INSTALL_REQUIREMENTS = [
     'coloredlogs',
     'dblpy',
     'discord.py==1.2.3',
+    'dblpy',
     'flask_sqlalchemy',
     'pip==18.0',
     'profanityfilter',

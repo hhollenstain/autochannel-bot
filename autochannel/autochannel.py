@@ -28,5 +28,6 @@ class AutoChannel(discord.ext.commands.Bot):
         self.auto_categories = kwargs.get('auto_categories')
         self.dbl_token = kwargs.get('dbl_token')
         self.env = kwargs.get('env') or 'dev'
+        self.dbl_token = kwargs.get('dbl_token')
         self.stats = None
         self.voice_channel_prefix = kwargs.get('voice_channel_prefix')
