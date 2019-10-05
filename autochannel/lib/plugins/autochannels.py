@@ -54,7 +54,7 @@ class AutoChannels(commands.Cog):
 
         while not self.autochannel.is_closed():
             LOG.info(f'QUEUE SIZE: {self.queue.qsize()}')
-            await asyncio.sleep(.1)
+            await asyncio.sleep(.25)
             task = await self.queue.get()
             LOG.info(task)
 
@@ -199,7 +199,7 @@ class AutoChannels(commands.Cog):
                                 'type': 'ac_delete_channel',
                                 'force': True,
                             }
-                        LOG.info('test')
+                        LOG.debug(f'Adding to queue: {q_object}')
                         await self.queue.put(q_object)
                         empty_channel_count -= 1
 
@@ -332,7 +332,7 @@ class AutoChannels(commands.Cog):
                 'guild': cat.guild.name, 
                 'type': 'ac_create_channel'
             }
-            LOG.info(f'queue object added: {q_object}')
+            LOG.debug(f'queue object added: {q_object}')
             await self.queue.put(q_object)
             
 
@@ -355,7 +355,7 @@ class AutoChannels(commands.Cog):
                         'type': 'ac_delete_channel',
                         'force': False,
                     }
-                LOG.info(f'queue object added: {q_object}')
+                LOG.debug(f'queue object added: {q_object}')
                 await self.queue.put(q_object)
 
     @task_metrics_counter
