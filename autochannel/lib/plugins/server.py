@@ -20,6 +20,7 @@ class Server(commands.Cog):
         await self.autochannel.change_presence(status=discord.Status.online, activity=Game('Waking up, making coffee...'))
         self.autochannel.loop.create_task(utils.change_status(self.autochannel))
         self.autochannel.loop.create_task(utils.list_servers(self.autochannel))
+        self.autochannel.loop.create_task(utils.list_users(self.autochannel))
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandInvokeError):
@@ -38,13 +39,12 @@ class Server(commands.Cog):
 
         await ctx.send('{}'.format(msg))
 
-    @commands.command()
+    @commands.command(name='autochannel', aliases=['autochan', 'info'])
     async def autochannel(self, ctx):
         """
         Information about what makes Fakah run!
         """
         embed = discord.Embed(
-            title = 'AutoChannel Bot',
             description = 'AutoChannel Bot information',
             colour = discord.Colour.green()
         )
@@ -53,8 +53,11 @@ class Server(commands.Cog):
 
         embed.set_author(name='AutoChannel Bot')
         embed.set_thumbnail(url=avatar)
-        embed.add_field(name='description', value=f'AutoChannel is a WIP, add AutoChannel bot to your server! [add me](http://auto-chan.io)', inline=True)
-        # embed.add_field(name='Source Code', value=f'Want to see what makes me run? [Source Code Here!](https://github.com/hhollenstain/autochannel-bot)', inline=True)
+        embed.add_field(name='description', value=f'Auto-chan manages voice channels creation, and custom voice channels. This is all managed via the auto-chan dashboard! AutoChannel bot to your server! [add me](http://auto-chan.io)', inline=True)
+        # embed.add_field(name='Source Code', value=f'Want to see what makes me
+        # run? [Source Code
+        # Here!](https://github.com/hhollenstain/autochannel-bot)', inline=True)
+        embed.add_field(name='**VOTE!**', value='If you enjoyed Auto-chan, please vote: https://top.gg/bot/606264038287998996')
         embed.add_field(name='Version', value=VERSION, inline=True)
 
         await ctx.send(embed=embed)

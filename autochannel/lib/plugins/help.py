@@ -15,12 +15,16 @@ class Help(commands.Cog):
 
         embed = discord.Embed(
             colour = discord.Colour.blue(),
-            description = 'Auto-chan auto creates/destroys voice channels in configured categories on http://auto-chan.io. Admins please configure the bot on the auto-chan.io dashboard'
         )
 
-        embed.set_author(name='Auto-chan')
-        embed.add_field(name='**!acupdate**', value='**ADMIN ONLY** syncs with settings on http://auto-chan.io', inline=False)
-        embed.add_field(name='**!vc <category> <name of channel>**', value='used to create custom channel in enabled categories **EXAMPLE:** ```!vc mycategory mychannelname```', inline=False)
+        # embed.set_author(name='**Auto-chan**')
+        embed.add_field(name='**Auto-chan**', value='Auto-chan auto creates/destroys voice channels in configured categories on http://auto-chan.io. Admins please configure the bot on the auto-chan.io dashboard')
+        embed.add_field(name='**ADMIN ONLY**', value='''
+                                                    **!acupdate**   => syncs with settings on http://auto-chan.io
+                                                '''
+                        )
+        embed.add_field(name='**Commands**', value='''**!vc<category> <name of channel>** => used to create custom channel in enabled categories
+                                                   ''', inline=False)
 
         await ctx.send(author, embed=embed)
 
