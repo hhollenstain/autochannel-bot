@@ -12,10 +12,27 @@ LOG = logging.getLogger(__name__)
 BLOCKED_USERS = os.getenv('BLOCKED_USERS') or '123456'
 
 def timediff(channelTime, currentTime):
+    """[summary]
+    
+    Arguments:
+        channelTime {[type]} -- [description]
+        currentTime {[type]} -- [description]
+    
+    Returns:
+        [type] -- [description]
+    """
     tdiff = int((currentTime - channelTime).total_seconds())
     return tdiff
 
 def to_int(value):
+    """[summary]
+    
+    Arguments:
+        value {[type]} -- [description]
+    
+    Returns:
+        [type] -- [description]
+    """
     if isinstance(value, str):
         return int(value.replace(",", ""))
     else:
@@ -39,6 +56,14 @@ def take(n, iterable):
     return list(islice(iterable, n))
 
 def friendly_time(seconds):
+    """[summary]
+    
+    Arguments:
+        seconds {[type]} -- [description]
+    
+    Returns:
+        [type] -- [description]
+    """
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
 
@@ -61,6 +86,11 @@ def missing_numbers(L):
     return sorted(set(range(start, end + 1)).difference(L))
 
 def block_check():
+    """[summary]
+    
+    Returns:
+        [type] -- [description]
+    """
     def predicate(ctx):
         if str(ctx.message.author.id) in BLOCKED_USERS:
             return False
@@ -69,6 +99,11 @@ def block_check():
     return commands.check(predicate)
 
 async def change_status(client):
+    """[summary]
+    
+    Arguments:
+        client {[type]} -- [description]
+    """
     await client.wait_until_ready()
 
     if os.environ.get('GAMES') is not None:
@@ -88,10 +123,27 @@ async def change_status(client):
 
 
 async def list_servers(client):
+    """[summary]
+    
+    Arguments:
+        client {[type]} -- [description]
+    """
     await client.wait_until_ready()
     while not client.is_closed():
         server_list = []
         for server in client.guilds:
             server_list.append(server.name)
-        LOG.info('Current servers: {}'.format(server_list))
+        LOG.info(f'Current servers: {server_list}')
+        await asyncio.sleep(600)
+
+async def list_users(client):
+    """[summary]
+    
+    Arguments:
+        client {[type]} -- [description]
+    """
+    await client.wait_until_ready()
+    while not client.is_closed():
+        numb_of_clients = len(set(client.get_all_members()))
+        LOG.info(f'Number Of clients: {numb_of_clients}')
         await asyncio.sleep(600)
