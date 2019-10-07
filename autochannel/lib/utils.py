@@ -4,9 +4,11 @@ import discord
 import logging
 import os
 from discord import Game
-from itertools import cycle, islice
-from autochannel import VERSION
 from discord.ext import commands
+from itertools import cycle, islice
+""" AC Imports """
+from autochannel import VERSION
+from autochannel.lib.metrics import bot_user_count, bot_guild_count
 
 LOG = logging.getLogger(__name__)
 BLOCKED_USERS = os.getenv('BLOCKED_USERS') or '123456'
@@ -113,13 +115,13 @@ async def change_status(client):
         while not client.is_closed():
             current_status = next(sts)
             await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
-            await asyncio.sleep(10)
+            await asyncio.sleep(300)
     else:
         while not client.is_closed():
             guild_count = len(client.guilds)
             current_status = 'Serving {} Discord servers!'.format(guild_count)
             await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
-            await asyncio.sleep(60)
+            await asyncio.sleep(300)
 
 
 async def list_servers(client):
@@ -133,6 +135,7 @@ async def list_servers(client):
         server_list = []
         for server in client.guilds:
             server_list.append(server.name)
+        bot_guild_count(len(server_list))
         LOG.info(f'Current servers: {server_list}')
         await asyncio.sleep(600)
 
@@ -145,5 +148,6 @@ async def list_users(client):
     await client.wait_until_ready()
     while not client.is_closed():
         numb_of_clients = len(set(client.get_all_members()))
+        bot_user_count(numb_of_clients)
         LOG.info(f'Number Of clients: {numb_of_clients}')
         await asyncio.sleep(600)
