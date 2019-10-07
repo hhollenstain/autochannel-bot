@@ -10,6 +10,25 @@ COMMAND_SUMMARY_ACUPDATE = Summary('command_acupdate', 'Time spent processing re
 COMMAND_COUNT = Counter('command_count', 'time command was invoked', ['guild', 'command'])
 TASK_COUNT = Counter('task_count', 'time command was invoked', ['guild', 'task'])
 QUEUE_COUNT = Gauge('autochan_queue_count', 'Number of events in queue')
+BOT_USER_COUNT = Gauge('autochan_bot_user_count', 'bot user count stats')
+BOT_GUILD_COUNT = Gauge('autochan_bot_guild_count', 'bot guild count stats')
+
+
+def bot_guild_count(num_of_guilds):
+    """[summary]
+    
+    Arguments:
+        num_of_guilds {[type]} -- [description]
+    """
+    BOT_GUILD_COUNT.set(num_of_guilds)   
+
+def bot_user_count(num_of_users):
+    """[summary]
+    
+    Arguments:
+        num_of_users {[type]} -- [description]
+    """
+    BOT_USER_COUNT.set(num_of_users)   
 
 def queue_stats_gauge(num_of_events):
     """[summary]

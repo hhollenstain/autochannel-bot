@@ -56,7 +56,6 @@ class AutoChannels(commands.Cog):
             LOG.info(f'QUEUE SIZE: {self.queue.qsize()}')
             await asyncio.sleep(.25)
             task = await self.queue.get()
-            LOG.info(task)
 
             if not task.get('type'):
                 self.autochannel.loop.call_soon_threadsafe(self.next.set)

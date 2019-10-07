@@ -3,12 +3,11 @@ import logging
 import random
 from discord import Game
 from discord.ext import commands
+""" AC imports """ 
 from autochannel import VERSION
 from autochannel.lib import utils
 
 LOG = logging.getLogger(__name__)
-
-
 
 class Server(commands.Cog):
     def __init__(self, autochannel):
