@@ -84,14 +84,15 @@ class AutoChannels(commands.Cog):
                                                 guild=task['guild'], 
                                                 force=task['force'],
                                                 )
+
+                if task['type'] is 'ac_prefix_sync':
+                    await self.ac_prefix_sync(task['channel'],
+                                            task['db_cat'],
+                                            guild=task['guild'],
+                                            )
+
             except:
                 pass
-
-            if task['type'] is 'ac_prefix_sync':
-                await self.ac_prefix_sync(task['channel'],
-                                          task['db_cat'],
-                                          guild=task['guild'],
-                                          )
 
             self.autochannel.loop.call_soon_threadsafe(self.next.set)
             await self.next.wait()
@@ -104,21 +105,21 @@ class AutoChannels(commands.Cog):
         """
 
         category = self.autochannel.session.query(Category).get(cat.id)
-
+        db_channel_list_id = category.get_channels()
         if force:
-            auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix)]
-            highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
+            auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
+            highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
             LOG.debug(f'force deleting auto-channel: {highest_empty_channel.name}')
             chan_id_delete = self.autochannel.session.query(Channel).get(highest_empty_channel.id)
             self.autochannel.session.delete(chan_id_delete)
             self.autochannel.session.commit()
             await highest_empty_channel.delete(reason='Auto-chan keeping a tidy house')
         else:
-            auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix) and len(channel.members) < 1]
+            auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id and len(channel.members) < 1]
             LOG.debug(f'empty autochannels for {cat.name}: {auto_channels}')
             empty_channel_count = len(auto_channels)
             if empty_channel_count > category.empty_count:  
-                highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
+                highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
                 LOG.debug(f'deleting auto-channel: {highest_empty_channel.name}')
                 chan_id_delete = self.autochannel.session.query(Channel).get(highest_empty_channel.id)
                 self.autochannel.session.delete(chan_id_delete)
@@ -196,6 +197,7 @@ class AutoChannels(commands.Cog):
             categories = [cat for cat in server.categories if cat.id in db_cats]
             """checking if the db knows about the categorey"""
             for cat in categories:
+                self.autochannel.session.expire_all()
                 db_cat = self.autochannel.session.query(Category).get(cat.id) 
                 auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
                 """
@@ -296,6 +298,18 @@ class AutoChannels(commands.Cog):
                         highest_empty_channel = ec
         return highest_empty_channel
 
+    def ac_db_highest_empty_channel(self, empty_auto_channels):
+        highest_empty_channel = None
+        highest_empty_channel_num = None
+        for ec in empty_auto_channels:
+            ec_db = self.autochannel.session.query(Channel).get(ec.id)
+            if not highest_empty_channel:
+                highest_empty_channel_num = self.get_ac_db_channel(ec_db)
+                highest_empty_channel = ec
+            if self.get_ac_db_channel(ec_db) > highest_empty_channel_num:
+                        highest_empty_channel = ec
+        return highest_empty_channel
+
     @commands.Cog.listener()
     async def on_ready(self):
         """
@@ -329,7 +343,6 @@ class AutoChannels(commands.Cog):
         """
         create voice channel vc <category> [optional suffix]
         """
-        # self.stats.increment('autochannel_bot.command.vc.count')
         data =  await self.parse(ctx, gcrequest )
         if data['category'] is None:
             raise ACUnknownCategory(f'Unknown Discord category')
@@ -494,6 +507,17 @@ class AutoChannels(commands.Cog):
         :returns the channel suffix number
         """
         return int(''.join(auto_channel.name.split(' ')[-1:]))
+
+    def get_ac_db_channel(self, auto_channel):
+        """[summary]
+        
+        Arguments:
+            auto_channel {[type]} -- [description]
+        
+        Returns:
+            [type] -- [description]
+        """
+        return auto_channel.num_suffix
 
     def vc_channel_number(self, ctx, data, category):
         """
