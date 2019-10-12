@@ -1,6 +1,13 @@
 from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
+class Channel(db.Model):
+    __tablename__ = 'channel'
+    id = db.Column(db.BigInteger, primary_key=True)
+    cat_id = db.Column(db.BigInteger, db.ForeignKey('category.id'), nullable=False)
+    chan_type = db.Column(db.String(10), unique=False, nullable=False, default='voice')
+    num_suffix = db.Column(db.Integer, unique=False, nullable=False)
+
 class Category(db.Model):
     __tablename__ = 'category'
     id = db.Column(db.BigInteger, primary_key=True)
@@ -11,6 +18,21 @@ class Category(db.Model):
     channel_size = db.Column(db.Integer, default=10, nullable=False)
     custom_enabled = db.Column(db.Boolean, default=False, nullable=False)
     custom_prefix = db.Column(db.String(10), unique=False, nullable=False, default='VC!')
+    channels = db.relationship(Channel, backref='channels')
+
+    def get_channels(self):
+        channels = []
+
+        for channel in self.channels:
+            channels.append(channel.id)
+        return channels
+
+    def get_chan_suffix(self):
+        suffix = []
+        for channel in self.channels:
+            suffix.append(channel.num_suffix)
+        return suffix
+    
     
 class Guild(db.Model):
     __tablename__ = 'guild'
