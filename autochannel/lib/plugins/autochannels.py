@@ -134,7 +134,8 @@ class AutoChannels(commands.Cog):
         """
         
         db_cat = self.autochannel.session.query(Category).get(cat.id)
-        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+        db_channel_list_id = db_cat.get_channels()
+        auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
         empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
         """ need a list of empty channels to decide whatt to clean up """
         empty_channel_count = len(empty_channel_list)
@@ -183,7 +184,8 @@ class AutoChannels(commands.Cog):
                 categories = [cat for cat in server.categories if cat.id in db_cats_disabled]
                 for cat in categories:
                     db_cat = self.autochannel.session.query(Category).get(cat.id)
-                    auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+                    db_channel_list_id = db_cat.get_channels()
+                    auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
                     for channel in auto_channels:
                         q_object = {
                                 'cat': cat, 
@@ -393,10 +395,11 @@ class AutoChannels(commands.Cog):
 
           ):       
             category = self.autochannel.session.query(Category).get(v_state.channel.category.id)
+            db_channel_list_id = category.get_channels()
             if (
                     category and 
                     category.enabled and 
-                    v_state.channel.name.startswith(category.prefix)
+                    v_state.channel.id in db_channel_list_id
                 ):
                 return True
             else:
@@ -412,7 +415,8 @@ class AutoChannels(commands.Cog):
         """
         cat = after.channel.category
         category = self.autochannel.session.query(Category).get(cat.id)
-        auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix)]
+        db_channel_list_id = category.get_channels()
+        auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
         empty_channel_count = len([channel for channel in auto_channels if  len(channel.members) < 1])
         if empty_channel_count < category.empty_count:
             q_object = {
@@ -432,8 +436,9 @@ class AutoChannels(commands.Cog):
         """
         cat = before.channel.category
         category = self.autochannel.session.query(Category).get(cat.id)
+        db_channel_list_id = category.get_channels()
         if len(before.channel.members) < 1:
-            auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix) and len(channel.members) < 1]
+            auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id and len(channel.members) < 1]
             LOG.debug(f'empty autochannels for {cat.name}: {auto_channels}')
             empty_channel_count = len(auto_channels)
             if empty_channel_count > category.empty_count:
