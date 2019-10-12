@@ -12,7 +12,7 @@ from profanityfilter import ProfanityFilter
 """AC imports"""
 from autochannel.lib import utils
 from autochannel.lib.metrics import command_metrics_counter, task_metrics_counter, queue_stats_gauge, COMMAND_SUMMARY_ACUPDATE
-from autochannel.data.models import Guild, Category
+from autochannel.data.models import Guild, Category, Channel
 
 LOG = logging.getLogger(__name__)
 pf = ProfanityFilter(no_word_boundaries = True)
@@ -30,7 +30,18 @@ class VCProfaneWordused(commands.CommandInvokeError):
     """custom Exception class for profane word use""" 
 
 class AutoChannels(commands.Cog):
-    """
+    """[summary]
+    
+    Arguments:
+        commands {[type]} -- [description]
+    
+    Raises:
+        ACUnknownCategory: [description]
+        VCProfaneWordused: [description]
+        ACDisabledCustomCategory: [description]
+    
+    Returns:
+        [type] -- [description]
     """
     def __init__(self, autochannel):
         self.autochannel = autochannel
@@ -76,6 +87,12 @@ class AutoChannels(commands.Cog):
             except:
                 pass
 
+            if task['type'] is 'ac_prefix_sync':
+                await self.ac_prefix_sync(task['channel'],
+                                          task['db_cat'],
+                                          guild=task['guild'],
+                                          )
+
             self.autochannel.loop.call_soon_threadsafe(self.next.set)
             await self.next.wait()
 
@@ -92,14 +109,20 @@ class AutoChannels(commands.Cog):
             auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix)]
             highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
             LOG.debug(f'force deleting auto-channel: {highest_empty_channel.name}')
+            chan_id_delete = self.autochannel.session.query(Channel).get(highest_empty_channel.id)
+            self.autochannel.session.delete(chan_id_delete)
+            self.autochannel.session.commit()
             await highest_empty_channel.delete(reason='Auto-chan keeping a tidy house')
         else:
             auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(category.prefix) and len(channel.members) < 1]
             LOG.debug(f'empty autochannels for {cat.name}: {auto_channels}')
             empty_channel_count = len(auto_channels)
-            if empty_channel_count > category.empty_count:
+            if empty_channel_count > category.empty_count:  
                 highest_empty_channel = self.ac_highest_empty_channel(auto_channels)
                 LOG.debug(f'deleting auto-channel: {highest_empty_channel.name}')
+                chan_id_delete = self.autochannel.session.query(Channel).get(highest_empty_channel.id)
+                self.autochannel.session.delete(chan_id_delete)
+                self.autochannel.session.commit()
                 await highest_empty_channel.delete(reason='Auto-chan keeping a tidy house')
             else:
                 LOG.debug (f'GUILD: {cat.guild.name} CAT: {cat.name} : No more channels to clean up')           
@@ -115,11 +138,16 @@ class AutoChannels(commands.Cog):
         """ need a list of empty channels to decide whatt to clean up """
         empty_channel_count = len(empty_channel_list)
         if empty_channel_count < db_cat.empty_count:
-            channel_suffix = self.ac_channel_number(auto_channels)
+            channel_suffix = self.ac_db_channel_number(db_cat)
             LOG.debug(f' Channel created {db_cat.prefix}') 
             position = channel_suffix + len(cat.text_channels)
             chan_name = f'{db_cat.prefix} - {channel_suffix}'
             created_channel = await cat.create_voice_channel(chan_name, position=position, user_limit=db_cat.channel_size)
+            LOG.debug(f'CHANNEL OBJECT CREATE => Channel(id={created_channel.id}, cat_id={cat.id}, type=voice)')
+            chan_id_add = Channel(id=created_channel.id, cat_id=cat.id, chan_type='voice', num_suffix=channel_suffix)
+            self.autochannel.session.add(chan_id_add)
+            self.autochannel.session.commit()
+        
         else:
             LOG.debug(f'Skipping channel AC create due to no longer needed')
             return None
@@ -170,6 +198,42 @@ class AutoChannels(commands.Cog):
             for cat in categories:
                 db_cat = self.autochannel.session.query(Category).get(cat.id) 
                 auto_channels = [channel for channel in cat.voice_channels if channel.name.startswith(db_cat.prefix)]
+                """
+                Temporary to sync non db entries
+                be removed on the 6.1.x release
+                """
+                db_channel_list_id = db_cat.get_channels()
+                missing_db_channels = [channel for channel in auto_channels if channel.id not in db_channel_list_id]
+                LOG.debug(missing_db_channels)
+
+                for chan in missing_db_channels:
+                    chan_id_add = Channel(id=chan.id, cat_id=db_cat.id, chan_type='voice', num_suffix=int(self.get_ac_channel(chan)))
+                    self.autochannel.session.add(chan_id_add)
+                
+                if len(missing_db_channels) > 0:
+                    self.autochannel.session.commit()
+
+                """
+                be removed on the 6.1.x release
+                """
+
+                db_channel_list_id = db_cat.get_channels()
+                auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
+                
+                """
+                    Will sync outdated prefixes
+                """
+                prefix_sync = [channel for channel in auto_channels if not channel.name.startswith(db_cat.prefix)]
+                for chan in prefix_sync:
+                    q_object = {
+                        'db_cat': db_cat, 
+                        'channel': chan,
+                        'guild': server.name, 
+                        'type': 'ac_prefix_sync'
+                    }
+                    LOG.debug(f'Adding to queue: {q_object}')
+                    await self.queue.put(q_object)
+
                 empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
                 """ need a list of empty channels to decide wat to clean up """
                 empty_channel_count = len(empty_channel_list)
@@ -201,6 +265,18 @@ class AutoChannels(commands.Cog):
                         LOG.debug(f'Adding to queue: {q_object}')
                         await self.queue.put(q_object)
                         empty_channel_count -= 1
+
+    @task_metrics_counter
+    async def ac_prefix_sync(self, channel, db_cat, **kwargs):
+        """[summary]
+        
+        Arguments:
+            channel {[voice channel object]} -- Channel object to update
+            db_cat {[Category db object]} -- category db object 
+        """
+        channel_db = self.autochannel.session.query(Channel).get(channel.id)
+        LOG.debug(f'Channel suffix being updated: {channel_db.num_suffix}')
+        await channel.edit(name=f'{db_cat.prefix} - {channel_db.num_suffix}')
 
     def ac_highest_empty_channel(self, empty_auto_channels):
         """[summary]
@@ -396,6 +472,17 @@ class AutoChannels(commands.Cog):
         suffix_list = []
         for channel in auto_channels:
             suffix_list.append(int(''.join(channel.name.split(' ')[-1:])))
+
+        return utils.missing_numbers(suffix_list)[0]
+
+    def ac_db_channel_number(self, db_cat):
+        """
+        returns number from auto prefix and returns the lowest number 
+        :param: object self: discord client 
+        :param: objects auto_channels: List of voice_channels objects 
+        :returns the lowest number missing from the sequence of voice_channels
+        """
+        suffix_list = db_cat.get_chan_suffix()
 
         return utils.missing_numbers(suffix_list)[0]
 

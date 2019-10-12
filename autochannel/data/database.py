@@ -1,6 +1,6 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 """AC imports"""
 from autochannel.data.models import Guild, Category
 
@@ -9,5 +9,7 @@ class DB:
         self.engine = create_engine(os.getenv('SQLALCHEMY_DATABASE_URI'))
 
     def session(self):
-        return Session(self.engine)
+        Session = sessionmaker(bind=self.engine)
+        session = Session()
+        return session
 
