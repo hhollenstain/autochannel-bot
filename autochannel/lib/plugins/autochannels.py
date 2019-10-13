@@ -211,8 +211,12 @@ class AutoChannels(commands.Cog):
                 LOG.debug(missing_db_channels)
 
                 for chan in missing_db_channels:
-                    chan_id_add = Channel(id=chan.id, cat_id=db_cat.id, chan_type='voice', num_suffix=int(self.get_ac_channel(chan)))
-                    self.autochannel.session.add(chan_id_add)
+                    try:
+                        chan_id_add = Channel(id=chan.id, cat_id=db_cat.id, chan_type='voice', num_suffix=int(self.get_ac_channel(chan)))
+                        self.autochannel.session.add(chan_id_add)
+                    except:
+                        LOG.info(f'skipping issue for: guild={server.name}, channel={chan.name}')
+                        pass
                 
                 if len(missing_db_channels) > 0:
                     self.autochannel.session.commit()
