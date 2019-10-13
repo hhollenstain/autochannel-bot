@@ -399,7 +399,10 @@ class AutoChannels(commands.Cog):
 
           ):       
             category = self.autochannel.session.query(Category).get(v_state.channel.category.id)
-            db_channel_list_id = category.get_channels()
+            if category:
+                db_channel_list_id = category.get_channels()
+            else:
+                db_channel_list_id = []
             if (
                     category and 
                     category.enabled and 
