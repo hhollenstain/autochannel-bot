@@ -110,9 +110,6 @@ class AutoChannels(commands.Cog):
             auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
             highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
             LOG.debug(f'force deleting auto-channel: {highest_empty_channel.name}')
-            chan_id_delete = self.autochannel.session.query(Channel).get(highest_empty_channel.id)
-            self.autochannel.session.delete(chan_id_delete)
-            self.autochannel.session.commit()
             await highest_empty_channel.delete(reason='Auto-chan keeping a tidy house')
         else:
             auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id and len(channel.members) < 1]
@@ -121,9 +118,6 @@ class AutoChannels(commands.Cog):
             if empty_channel_count > category.empty_count:  
                 highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
                 LOG.debug(f'deleting auto-channel: {highest_empty_channel.name}')
-                chan_id_delete = self.autochannel.session.query(Channel).get(highest_empty_channel.id)
-                self.autochannel.session.delete(chan_id_delete)
-                self.autochannel.session.commit()
                 await highest_empty_channel.delete(reason='Auto-chan keeping a tidy house')
             else:
                 LOG.debug (f'GUILD: {cat.guild.name} CAT: {cat.name} : No more channels to clean up')           
@@ -457,6 +451,24 @@ class AutoChannels(commands.Cog):
                     }
                 LOG.debug(f'queue object added: {q_object}')
                 await self.queue.put(q_object)
+
+    @task_metrics_counter
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel):
+        """This tracks all channel deletes and if the channel is tracked by auto-chan, 
+           it will clean up the db entry. This is imporant due to admins deleting channels managed by auto-chan
+           that otherwise would get missed.
+        
+        Arguments:
+            channel {[type]} -- [description]
+        """
+
+        LOG.debug(f'Channel that was deleted {channel.id}')
+        chan_id_delete = self.autochannel.session.query(Channel).get(channel.id)
+        if chan_id_delete:
+            LOG.debug(f'chan_ID_DELETE: {chan_id_delete}')
+            self.autochannel.session.delete(chan_id_delete)
+            self.autochannel.session.commit()
 
     @task_metrics_counter
     @commands.Cog.listener()
