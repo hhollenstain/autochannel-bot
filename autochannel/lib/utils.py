@@ -136,7 +136,7 @@ async def list_servers(client):
         for server in client.guilds:
             server_list.append(server.name)
         bot_guild_count(len(server_list))
-        LOG.info(f'Current servers: {server_list}')
+        LOG.debug(f'Current servers: {server_list}')
         await asyncio.sleep(600)
 
 async def list_users(client):
@@ -149,5 +149,5 @@ async def list_users(client):
     while not client.is_closed():
         numb_of_clients = len(set(client.get_all_members()))
         bot_user_count(numb_of_clients)
-        LOG.info(f'Number Of clients: {numb_of_clients}')
+        LOG.debug(f'Number Of clients: {numb_of_clients}')
         await asyncio.sleep(600)

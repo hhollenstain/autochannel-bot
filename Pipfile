@@ -10,7 +10,7 @@ name = "pypi"
 e1839a8 = {path = ".", editable = true}
 tamago = {path = ".",editable = true}
 fakah = {path = ".",editable = true}
-autochannel = {path = ".",editable = true}
+autochannel = {editable = true, path = "."}
 
 [requires]
 python_version = "3.6"

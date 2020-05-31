@@ -91,8 +91,8 @@ class AutoChannels(commands.Cog):
                                             guild=task['guild'],
                                             )
 
-            except:
-                pass
+            except Exception as e:
+                LOG.error(e)
 
             self.autochannel.loop.call_soon_threadsafe(self.next.set)
             await self.next.wait()
@@ -183,7 +183,7 @@ class AutoChannels(commands.Cog):
                     for channel in auto_channels:
                         q_object = {
                                 'cat': cat, 
-                                'guild': server.name, 
+                                'guild': server.name,
                                 'type': 'ac_delete_channel',
                                 'force': True,
                             }
