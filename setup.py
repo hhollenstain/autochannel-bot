@@ -5,6 +5,7 @@ from setuptools import setup, find_packages
 import autochannel
 
 INSTALL_REQUIREMENTS = [
+    'aiohttp==3.6.3',
     'asyncio',
     'aiomeasures',
     'coloredlogs',
