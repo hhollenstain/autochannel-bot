@@ -58,10 +58,12 @@ def main():
     logging.getLogger('urllib3').setLevel(l_level)
 
     LOG.info("LONG LIVE AutoChannel bot")
+    intents = discord.Intents.default()
+    LOG.info(f'Intents: {intents}')
     autochannel = AutoChannel(shard_id=int(SHARD), shard_count=int(SHARD_COUNT),
                     command_prefix=BOT_PREFIX, app_id=APP_ID, voice_channel_prefix=VOICE_CHANNEL_PREFIX,
                     auto_channel_prefix=AUTO_CHANNEL_PREFIX, auto_categories=AUTO_CATEGORIES,
-                    env=ENV, dbl_token=DBL_TOKEN)
+                    env=ENV, dbl_token=DBL_TOKEN, intents=intents)
 
     for extension in EXTENSIONS:
         plugin.load('autochannel.lib.plugins.{}'.format(extension), autochannel)
