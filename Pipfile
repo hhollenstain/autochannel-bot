@@ -14,4 +14,4 @@ autochannel = {editable = true, path = "."}
 "discord.py" = {git = "https://github.com/Rapptz/discord.py", ref = "master"}
 
 [requires]
-python_version = "3.6"
+python_version = "3.6.8"
