@@ -341,7 +341,7 @@ class AutoChannels(commands.Cog):
             interaction (discord.Interaction): _description_
         """
         await self.manage_auto_voice_channels(self.autochannel, guild=interaction.guild)
-        await interaction.response.send_message("it syncd?")
+        await interaction.response.send_message("Changes have been syncronized from http://auto-chan.io/")
 
 
     @sync.error 
@@ -613,14 +613,15 @@ class AutoChannels(commands.Cog):
             bool: _description_
         """        
         serverCatagories = self.getGuildCategories(interaction)
-        number_of_users = 10
+
+        LOG.debug(f'Categories found: {serverCatagories}')
 
         """ Checking to see if category is in the string of data everything else is channel name"""
         for cat in serverCatagories:
             if cat in category.lower():
                 return True
-            else:
-                return False
+        
+        return False
 
     def getGuildCategories(self, interaction: discord.Interaction) -> list:
         """_summary_
