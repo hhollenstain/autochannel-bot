@@ -16,18 +16,15 @@ from discord.ext.commands import Bot
 """metrics"""
 from prometheus_client import start_http_server
 """AC Imports"""
-from autochannel.lib import plugin, utils
+from autochannel.lib import utils
 from autochannel.autochannel import AutoChannel
 from autochannel.data.models import Guild, Category
 
 EXTENSIONS = [
-    # 'autochannel.lib.plugins.autochannels',
-    # 'autochannel.lib.plugins.autochannels_update',
-    'autochannel.lib.plugins.autochannels_update_2',
-    # 'autochannel.lib.plugins.ac_dbl',
-    # 'autochannel.lib.plugins.help',
-    'autochannel.lib.plugins.test',
-    # 'autochannel.lib.plugins.server',
+    'autochannel.lib.plugins.autochannels',
+    # 'autochannel.lib.plugins.ac_dbl', broken requires some fixes
+    'autochannel.lib.plugins.join',
+    'autochannel.lib.plugins.server',
     ]
 
 LOG = logging.getLogger(__name__)
@@ -45,6 +42,8 @@ TESTING_GUILD_ID = os.getenv('TESTING_GUILD_ID')
 ENV = os.getenv('ENV') or None
 
 def main():
+    """_summary_
+    """
     asyncio.run(runAC())
 
 async def runAC():
@@ -82,10 +81,7 @@ async def runAC():
                     testing_guild_id=TESTING_GUILD_ID,
                     )
 
-    # for extension in EXTENSIONS:
-    #     await plugin.load('autochannel.lib.plugins.{}'.format(extension), autochannel)
     start_http_server(8000)
-    # autochannel.run(TOKEN)
     await autochannel.start(TOKEN)
    
 
