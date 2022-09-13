@@ -5,7 +5,7 @@ import sys
 
 LOG = logging.getLogger(__name__)
 
-def load(extension, client):
+async def load(extension, client):
 
     try:
         #lib = importlib.import_module(extension, package="tamago")
@@ -16,7 +16,7 @@ def load(extension, client):
 
             raise discord.ClientException('extension does not have a setup function')
 
-        lib.setup(client)
+        await lib.setup(client)
         LOG.info('Loaded extension: {}'.format(extension))
     except Exception as e:
         LOG.error('{} extension can not be loaded. [{}]'.format(extension, e))

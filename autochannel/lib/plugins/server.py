@@ -61,5 +61,5 @@ class Server(commands.Cog):
 
         await ctx.send(embed=embed)
 
-def setup(autochannel):
-    autochannel.add_cog(Server(autochannel))
+async def setup(autochannel):
+    await autochannel.add_cog(Server(autochannel))

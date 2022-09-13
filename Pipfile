@@ -7,11 +7,7 @@ name = "pypi"
 "pep8" = "*"
 
 [packages]
-e1839a8 = {path = ".", editable = true}
-tamago = {path = ".",editable = true}
-fakah = {path = ".",editable = true}
 autochannel = {editable = true, path = "."}
-"discord.py" = {git = "https://github.com/Rapptz/discord.py", ref = "master"}
 
 [requires]
-python_version = "3.6.8"
+python_version = "3.10.0"
