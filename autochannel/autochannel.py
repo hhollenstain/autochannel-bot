@@ -46,3 +46,5 @@ class AutoChannel(discord.ext.commands.Bot):
             # followed by syncing to the testing guild.
             await self.tree.sync(guild=guild)
             log.info(f'Commands successfully updated to GUILD: {guild.id}')
+        else:
+            await self.tree.sync()

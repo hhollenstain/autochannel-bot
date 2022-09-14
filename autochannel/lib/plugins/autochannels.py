@@ -330,8 +330,7 @@ class AutoChannels(commands.Cog):
         """
         await self.manage_auto_voice_channels(self.autochannel)
 
-
-    @app_commands.checks.has_role('Admin')
+    @app_commands.checks.has_permissions(manage_channels=True)
     @app_commands.command(name="sync", description="sync from http://auto-chan.io")
     @command_metrics_counter
     async def sync(self, interaction: discord.Interaction):
