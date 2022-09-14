@@ -5,7 +5,6 @@ import asyncio
 import aiohttp
 import json
 from discord.ext.commands import Bot
-"""monitor"""
 
 """data"""
 from autochannel.data.database import DB
@@ -19,7 +18,7 @@ class AutoChannel(discord.ext.commands.Bot):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args,initial_extensions: list[str], **kwargs):
         super().__init__(*args, **kwargs)
         db = DB()
         self.session = db.session()
@@ -31,3 +30,21 @@ class AutoChannel(discord.ext.commands.Bot):
         self.dbl_token = kwargs.get('dbl_token')
         self.stats = None
         self.voice_channel_prefix = kwargs.get('voice_channel_prefix')
+        self.initial_extensions = initial_extensions
+        self.testing_guild_id = kwargs.get('testing_guild_id') or None
+
+    async def setup_hook(self) -> None:
+        """_summary_
+        """
+        for extension in self.initial_extensions:
+            await self.load_extension(extension)
+
+        if self.testing_guild_id:
+            guild = discord.Object(self.testing_guild_id)
+            # We'll copy in the global commands to test with:
+            self.tree.copy_global_to(guild=guild)
+            # followed by syncing to the testing guild.
+            await self.tree.sync(guild=guild)
+            log.info(f'Commands successfully updated to GUILD: {guild.id}')
+        else:
+            await self.tree.sync()

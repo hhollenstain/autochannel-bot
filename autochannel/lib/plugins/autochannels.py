@@ -1,3 +1,6 @@
+import traceback
+
+from typing import Optional
 import asyncio
 import datetime
 import discord
@@ -6,7 +9,7 @@ import queue
 import random
 import re
 import time
-from discord import Game
+from discord import app_commands
 from discord.ext import commands
 from profanityfilter import ProfanityFilter
 """AC imports"""
@@ -74,18 +77,18 @@ class AutoChannels(commands.Cog):
 
             LOG.info(f'Running queue Task: {task}')
             try: 
-                if task['type'] is 'ac_create_channel':
+                if task['type'] == 'ac_create_channel':
                     await self.ac_create_channel(task['cat'], 
                                                 guild=task['guild'], 
                                                 )
 
-                if task['type'] is 'ac_delete_channel':
+                if task['type'] == 'ac_delete_channel':
                     await self.ac_delete_channel(task['cat'], 
                                                 guild=task['guild'], 
                                                 force=task['force'],
                                                 )
 
-                if task['type'] is 'ac_prefix_sync':
+                if task['type'] == 'ac_prefix_sync':
                     await self.ac_prefix_sync(task['channel'],
                                             task['db_cat'],
                                             guild=task['guild'],
@@ -100,9 +103,12 @@ class AutoChannels(commands.Cog):
 
     @task_metrics_counter
     async def ac_delete_channel(self, cat, force, **kwargs):
-        """
-        insert logic to datadog metrics
-        """
+        """_summary_
+
+        Args:
+            cat (_type_): _description_
+            force (_type_): _description_
+        """        
 
         category = self.autochannel.session.query(Category).get(cat.id)
         db_channel_list_id = category.get_channels()
@@ -124,9 +130,14 @@ class AutoChannels(commands.Cog):
 
     @task_metrics_counter
     async def ac_create_channel(self, cat, **kwargs):
-        """
-        """
-        
+        """_summary_
+
+        Args:
+            cat (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """        
         db_cat = self.autochannel.session.query(Category).get(cat.id)
         db_channel_list_id = db_cat.get_channels()
         auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
@@ -152,9 +163,11 @@ class AutoChannels(commands.Cog):
 
     @task_metrics_counter
     async def vc_delete_channel(self, voicechannel, **kwargs):
-        """
-        insert logic to datadog metrics 
-        """
+        """_summary_
+
+        Args:
+            voicechannel (_type_): _description_
+        """        
         reason = kwargs.get('reason')
         await voicechannel.delete(reason=reason)
         
@@ -171,7 +184,6 @@ class AutoChannels(commands.Cog):
             db_cats = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=True).all())
             db_cats = [i[0] for i in db_cats]
             ac_guilds = autochannel.guilds
-        
         for server in ac_guilds:
             if db_cats_disabled:
                 """ Runs if we have are calling the acupdate"""
@@ -318,64 +330,93 @@ class AutoChannels(commands.Cog):
         """
         await self.manage_auto_voice_channels(self.autochannel)
 
-    @commands.command()
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(manage_channels=True)
+    @app_commands.command(name="sync", description="sync from http://auto-chan.io")
     @command_metrics_counter
-    @COMMAND_SUMMARY_ACUPDATE.time()
-    async def acupdate(self, ctx):
-        """
-        
-        Arguments:
-            ctx {[type]} -- [description]
-        """
-        embed = discord.Embed(
-            title = 'AutoChannel update',
-            colour = discord.Colour.green()
-        )
-        msg = 'Syncd AutoChannel settings with server'
-        embed.add_field(name='Success', value=msg)
-        await self.manage_auto_voice_channels(self.autochannel, guild=ctx.guild)
-        await ctx.send(embed=embed)
+    async def sync(self, interaction: discord.Interaction):
+        """_summary_
 
-    @commands.command(name='vc', aliases=['gc'])
+        Args:
+            interaction (discord.Interaction): _description_
+        """
+        await self.manage_auto_voice_channels(self.autochannel, guild=interaction.guild)
+        await interaction.response.send_message("Changes have been syncronized from http://auto-chan.io/")
+
+
+    @sync.error 
+    async def on_sync_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        await interaction.response.send_message(f"Error {error}")
+
+
+    @app_commands.command(name="vc", description="create voice channel")
     @command_metrics_counter
-    async def vc(self, ctx, *, gcrequest: str=''):
-        """
-        create voice channel vc <category> [optional suffix]
-        """
-        data =  await self.parse(ctx, gcrequest )
-        if data['category'] is None:
+    async def vc(self, interaction: discord.Interaction, category: str, channelname: str = ''):
+        """_summary_
+
+        Args:
+            interaction (discord.Interaction): _description_
+            category (str): _description_
+            channelname (str, optional): _description_. Defaults to ''.
+
+        Raises:
+            ACUnknownCategory: _description_
+            VCProfaneWordused: _description_
+            ACDisabledCustomCategory: _description_
+        """ 
+        if not self.validateCategory(interaction, category):
             raise ACUnknownCategory(f'Unknown Discord category')
 
-        cat_name = [cat for cat in ctx.guild.categories if cat.name.lower() in data['category'].lower()][0]
-        category = self.autochannel.session.query(Category).get(cat_name.id)
+        categoryName = [cat for cat in interaction.guild.categories if cat.name.lower() in category.lower()][0]
+        categoryObj = self.autochannel.session.query(Category).get(categoryName.id)
 
-        if data['channel_suffix']:
-            AC_suffix = data['channel_suffix']
-            if pf.is_profane(AC_suffix):
+        if channelname:
+            vcSuffix = channelname
+            if pf.is_profane(channelname):
                 raise VCProfaneWordused(f'Used a profane word when creating a custom voice channel')
-        else:
-            AC_suffix = self.vc_channel_number(ctx, data, category)
-
-        if not category or not category.custom_enabled:
-            raise ACDisabledCustomCategory(f'Category {cat_name.name} is disabled. To use custom channels in this category an **ADMIN** must enable:  http://auto-chan.io')
         
-        created_channel = await ctx.guild.create_voice_channel(f'{category.custom_prefix} {AC_suffix}', overwrites=None, category=cat_name, reason='AutoChannel bot automation')
+        else:
+            vcSuffix = self.vc_channel_number(interaction, category, categoryObj)
+        
+
+        if not categoryObj.custom_enabled:
+            raise ACDisabledCustomCategory(f'Category {categoryName.name} is disabled. To use custom channels in this category an **ADMIN** must enable:  http://auto-chan.io')
+
+        createdVC= await interaction.guild.create_voice_channel(f'{categoryObj.custom_prefix} {vcSuffix}', overwrites={}, category=categoryName, reason='AutoChannel bot automation')
         # overwrite = discord.PermissionOverwrite()
         # overwrite.manage_channels = True
         # overwrite.manage_roles  = True
         # await created_channel.set_permissions(ctx.message.author, overwrite=overwrite)
-        invite_link = await self.ac_invite(ctx, created_channel)
+        inviteLink = await self.createVCInvite(interaction, createdVC)
 
-        await ctx.send(f'AutoChannel made `{ctx.author}` a channel `{created_channel.name}`')
-        await ctx.send(invite_link)
+        await interaction.channel.send(f'AutoChannel made `{interaction.user}` a channel `{createdVC.name}`')
+        await interaction.response.send_message(inviteLink)
+
         await asyncio.sleep(60)
-        if  len(created_channel.members) < 1:
+        if  len(createdVC.members) < 1:
             try:
-                await self.vc_delete_channel(created_channel, reason='No one joined the custom channel after 60 seconds')
+                await self.vc_delete_channel(createdVC, reason='No one joined the custom channel after 60 seconds')
             except:
                 """annoying to see this error doesn't add value to the end user"""
                 pass
+
+    @vc.error 
+    async def on_vc_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        """_summary_
+
+        Args:
+            interaction (discord.Interaction): _description_
+            error (app_commands.AppCommandError): _description_
+        """        
+        msg = error
+        if isinstance(error, ACUnknownCategory):
+            existing_cats = self.cat_names(ctx)
+            msg += f'**Unknown category:** How-To: `!vc <category> <name of channel>`   **Category list:** {existing_cats}'
+        if isinstance(error, VCProfaneWordused):
+            msg += 'Auto-chan hates bad words, please be nice'
+            
+        traceback.print_exc()
+        await interaction.response.send_message(msg)
+
 
     def valid_auto_channel(self, v_state):
         """[summary]
@@ -543,106 +584,65 @@ class AutoChannels(commands.Cog):
         """
         return auto_channel.num_suffix
 
-    def vc_channel_number(self, ctx, data, category):
-        """
-        returns the length of channel numbers 
-        :param: object self: discord client 
-        :param: object ctx: contex 
-        :param: dictionary data: contains data information to utilize 
-        """
-        ac_channels = [vc for vc in ctx.guild.voice_channels if str(vc.category).lower().startswith(f'{data["category"]}') and vc.name.startswith(category.custom_prefix)]
+    def vc_channel_number(self, interaction: discord.Interaction, category, categoryObj):
+        ac_channels = [vc for vc in interaction.guild.voice_channels if str(vc.category).lower().startswith(f'{category}') and vc.name.startswith(category.custom_prefix)]
         return (len(ac_channels) + 1)
 
-    async def ac_invite(self, ctx, created_channel):
-        """
-        returns a invite link object for discord
-        :param: object self: discord client
-        :param: object CTX: context
-        :param: object created_channel: discord channel 
-        """
-        invitelink = await created_channel.create_invite(reason='AutoChannel likes to make links')
+    async def createVCInvite(self, interaction: discord.Interaction, voiceChannel) -> discord.Invite:
+        """_summary_
+
+        Args:
+            interaction (discord.Interaction): _description_
+            voiceChannel (_type_): _description_
+
+        Returns:
+            discord.Invite: _description_
+        """            
+        invitelink = await voiceChannel.create_invite(reason='AutoChannel likes to make links')
         return invitelink
 
-    async def parse(self, ctx, gcrequest):
-        """
-        returns data dictionary parsed from a context
-        :param: object self: discord client
-        :param: object ctx: context
-        :param: string gcrequest: string from the command context
-        returns  parsed data dictionary for consumptuion
-        """
-        server_cats = self.cat_names(ctx)
-        category = None
-        number_of_users = 10
-        channel_suffix = None
-        gcrequest_list = gcrequest.split()
-        data = {}
+    def validateCategory(self, interaction: discord.Interaction, category: str) -> bool:
+        """_summary_
+
+        Args:
+            interaction (discord.Interaction): _description_
+            category (str): _description_
+
+        Returns:
+            bool: _description_
+        """        
+        serverCatagories = self.getGuildCategories(interaction)
+
+        LOG.debug(f'Categories found: {serverCatagories}')
+
         """ Checking to see if category is in the string of data everything else is channel name"""
-        for cat in server_cats:
-            if cat in gcrequest.lower():
-                category = cat
-        if category:
-            category_remove = re.compile(re.escape(category), re.IGNORECASE)
-            channel_suffix = category_remove.sub('', gcrequest)
+        for cat in serverCatagories:
+            if cat in category.lower():
+                return True
+        
+        return False
 
-        data['category'] = category
-        data['channel_suffix'] = channel_suffix
-        data['number_of_users'] = number_of_users
-        return data
+    def getGuildCategories(self, interaction: discord.Interaction) -> list:
+        """_summary_
 
-    def cat_names(self, ctx):
-        """
-        used to et a list of category names
-        :param: object self: discord client
-        :param: object context: used mainly to find authors guild
-        :returns list cat_list: list of categories from a discord guild
-        """
+        Args:
+            interaction (discord.Interaction): _description_
+
+        Returns:
+            list: _description_
+        """        
         cat_list = []
-        for cat in ctx.guild.categories:
+        for cat in interaction.guild.categories:
             cat_list.append(cat.name.lower())
         return cat_list
 
-    @acupdate.error 
-    async def acupdate_handler(self, ctx, error):
-        """
-        """
-        embed = discord.Embed(
-            title = 'AutoChannel error',
-            colour = discord.Colour.red()
-        )
-        msg = error
-
-        if isinstance(error, commands.MissingPermissions):
-            embed.title = 'Insufficient permissions'
-            msg = 'Contact an admin for help.'
-        if isinstance(error, commands.CommandInvokeError):
-            embed.titls = 'Insufficent permissions'
-            msg = 'Server is setup incorrect for mange_channel permissions for Auto-chan'
-            
-        embed.add_field(name='Error', value=msg)
-        await ctx.send(embed=embed)
-
-    @vc.error 
-    async def ac_handler(self, ctx, error):
-        """
-        """
-        embed = discord.Embed(
-            title = 'AutoChannel error',
-            colour = discord.Colour.red()
-        )
-        msg = error
-
-        if isinstance(error, ACUnknownCategory):
-            existing_cats = self.cat_names(ctx)
-            msg = f'**Unknown category:** How-To: `!vc <category> <name of channel>`   **Category list:** {existing_cats}'
-        if isinstance(error, VCProfaneWordused):
-            msg = 'Auto-chan hates bad words, please be nice'
-            
-        embed.add_field(name='Error', value=msg)
-        await ctx.send(embed=embed)
 
 
-def setup(autochannel):
-    """
-    """
-    autochannel.add_cog(AutoChannels(autochannel))
+
+async def setup(autochannel):
+    """_summary_
+
+    Args:
+        autochannel (_type_): _description_
+    """    
+    await autochannel.add_cog(AutoChannels(autochannel))

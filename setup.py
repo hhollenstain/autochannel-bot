@@ -5,20 +5,23 @@ from setuptools import setup, find_packages
 import autochannel
 
 INSTALL_REQUIREMENTS = [
-    'aiohttp==3.6.3',
+    # 'aiohttp==3.6.3',
+    'aiohttp',
     'asyncio',
     'aiomeasures',
     'coloredlogs',
     'dblpy',
-    'discord.py==1.5.1',
+    'discord.py==2.0.1',
     'dblpy',
     'flask_sqlalchemy',
-    'pip==18.0',
+    # 'pip==18.0',
+    'pip',
     'profanityfilter',
     'prometheus_client',
     'psycopg2-binary',
     'pyyaml',
-    'requests==2.21.0',
+    # 'requests==2.21.0',
+    'requests',
     'sqlalchemy',
 ]
 

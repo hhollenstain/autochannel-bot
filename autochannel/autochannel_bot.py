@@ -16,15 +16,15 @@ from discord.ext.commands import Bot
 """metrics"""
 from prometheus_client import start_http_server
 """AC Imports"""
-from autochannel.lib import plugin, utils
+from autochannel.lib import utils
 from autochannel.autochannel import AutoChannel
 from autochannel.data.models import Guild, Category
 
 EXTENSIONS = [
-    'autochannels',
-    'ac_dbl',
-    'help',
-    'server',
+    'autochannel.lib.plugins.autochannels',
+    # 'autochannel.lib.plugins.ac_dbl', broken requires some fixes
+    'autochannel.lib.plugins.join',
+    'autochannel.lib.plugins.server',
     ]
 
 LOG = logging.getLogger(__name__)
@@ -38,9 +38,15 @@ TOKEN = os.getenv('TOKEN')
 VOICE_CHANNEL_PREFIX = os.getenv('VOICE_CHANNEL_PREFIX') or '!VC '
 AUTO_CHANNEL_PREFIX = os.getenv('AUTO_CHANNEL_PREFIX') or '!AC '
 AUTO_CATEGORIES = os.getenv('AUTO_CATEGORIES').lower().split(",") or ['auto-voice']
+TESTING_GUILD_ID = os.getenv('TESTING_GUILD_ID')
 ENV = os.getenv('ENV') or None
 
 def main():
+    """_summary_
+    """
+    asyncio.run(runAC())
+
+async def runAC():
     """Entrypoint if called as an executable."""
     args = utils.parse_arguments()
     logging.basicConfig(level=logging.INFO)
@@ -60,15 +66,23 @@ def main():
     LOG.info("LONG LIVE AutoChannel bot")
     intents = discord.Intents.default()
     LOG.info(f'Intents: {intents}')
-    autochannel = AutoChannel(shard_id=int(SHARD), shard_count=int(SHARD_COUNT),
-                    command_prefix=BOT_PREFIX, app_id=APP_ID, voice_channel_prefix=VOICE_CHANNEL_PREFIX,
-                    auto_channel_prefix=AUTO_CHANNEL_PREFIX, auto_categories=AUTO_CATEGORIES,
-                    env=ENV, dbl_token=DBL_TOKEN, intents=intents)
+    autochannel = AutoChannel(
+                    shard_id=int(SHARD), 
+                    shard_count=int(SHARD_COUNT),
+                    command_prefix=BOT_PREFIX, 
+                    app_id=APP_ID, 
+                    voice_channel_prefix=VOICE_CHANNEL_PREFIX,
+                    auto_channel_prefix=AUTO_CHANNEL_PREFIX, 
+                    auto_categories=AUTO_CATEGORIES,
+                    env=ENV, 
+                    dbl_token=DBL_TOKEN, 
+                    intents=intents, 
+                    initial_extensions=EXTENSIONS,
+                    testing_guild_id=TESTING_GUILD_ID,
+                    )
 
-    for extension in EXTENSIONS:
-        plugin.load('autochannel.lib.plugins.{}'.format(extension), autochannel)
     start_http_server(8000)
-    autochannel.run(TOKEN)
+    await autochannel.start(TOKEN)
    
 
 
