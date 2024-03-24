@@ -11,7 +11,7 @@ INSTALL_REQUIREMENTS = [
     'aiomeasures',
     'coloredlogs',
     'dblpy',
-    'discord.py==2.0.1',
+    'discord.py==2.3.2',
     'dblpy',
     'flask_sqlalchemy',
     # 'pip==18.0',
