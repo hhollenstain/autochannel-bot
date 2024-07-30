@@ -1,7 +1,13 @@
 version: '3'
 services:
-  fakah:
-    env_file:
-    - .env
+  autochannel-bot:
     image: hhollenstain/autochannel-bot:latest
     restart: always
+    environment:
+      APP_ID:
+      AUTO_CATEGORIES:
+      TOKEN:
+      BLOCKED_USERS:
+      GAMES:
+      SQLALCHEMY_DATABASE_URI:
+      ENV:
