@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.egg-info
+*.egg
+.eggs
+dist
+build
+
+# Environment
+.env
+.env.*
+*.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Old package management (optional - can remove after migration)
+Pipfile
+Pipfile.lock
+
+# Documentation
+# Note: README.md is needed for pyproject.toml build, so we don't exclude it
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+
+# Misc
+Makefile

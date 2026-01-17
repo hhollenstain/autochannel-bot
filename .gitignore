@@ -20,3 +20,7 @@ pip-delete-this-directory.txt
 
 # editor
 .vscode
+
+# UV cache (but commit uv.lock for reproducible builds)
+.venv/
+.uv/

@@ -142,7 +142,7 @@ class AutoChannels(commands.Cog):
         db_channel_list_id = db_cat.get_channels()
         auto_channels = [channel for channel in cat.voice_channels if channel.id in db_channel_list_id]
         empty_channel_list = [channel for channel in auto_channels if  len(channel.members) < 1]
-        """ need a list of empty channels to decide whatt to clean up """
+        """ need a list of empty channels to decide what to clean up """
         empty_channel_count = len(empty_channel_list)
         if empty_channel_count < db_cat.empty_count:
             channel_suffix = self.ac_db_channel_number(db_cat)
@@ -152,8 +152,13 @@ class AutoChannels(commands.Cog):
             created_channel = await cat.create_voice_channel(chan_name, position=position, user_limit=db_cat.channel_size)
             LOG.debug(f'CHANNEL OBJECT CREATE => Channel(id={created_channel.id}, cat_id={cat.id}, type=voice)')
             chan_id_add = Channel(id=created_channel.id, cat_id=cat.id, chan_type='voice', num_suffix=channel_suffix)
-            self.autochannel.session.add(chan_id_add)
-            self.autochannel.session.commit()
+            try:
+                self.autochannel.session.add(chan_id_add)
+                self.autochannel.session.commit()
+            except Exception as e:
+                self.autochannel.session.rollback()
+                LOG.error(f"Error adding channel to database: {e}")
+                raise
         
         else:
             LOG.debug(f'Skipping channel AC create due to no longer needed')
@@ -177,7 +182,9 @@ class AutoChannels(commands.Cog):
         Args:
             autochannel (_type_): _description_
             guild (_type_, optional): _description_. Defaults to None.
-        """        
+        """
+        # Ensure session is valid before starting
+        autochannel._ensure_session()
         db_cats_disabled = None
         if guild:
             db_cats = list(self.autochannel.session.query(Category).with_entities(Category.id).filter_by(enabled=True, guild_id=guild.id).all())
@@ -226,12 +233,21 @@ class AutoChannels(commands.Cog):
                     try:
                         chan_id_add = Channel(id=chan.id, cat_id=db_cat.id, chan_type='voice', num_suffix=int(self.get_ac_channel(chan)))
                         self.autochannel.session.add(chan_id_add)
-                    except:
-                        LOG.info(f'skipping issue for: guild={server.name}, channel={chan.name}')
+                    except Exception as e:
+                        LOG.info(f'skipping issue for: guild={server.name}, channel={chan.name}: {e}')
+                        try:
+                            self.autochannel.session.rollback()
+                        except Exception:
+                            self.autochannel._ensure_session()
                         pass
                 
                 if len(missing_db_channels) > 0:
-                    self.autochannel.session.commit()
+                    try:
+                        self.autochannel.session.commit()
+                    except Exception as e:
+                        self.autochannel.session.rollback()
+                        LOG.error(f"Error committing missing channels: {e}")
+                        raise
 
                 """
                 be removed on the 6.1.x release
@@ -335,8 +351,20 @@ class AutoChannels(commands.Cog):
         Args:
             interaction (discord.Interaction): _description_
         """
-        await self.manage_auto_voice_channels(self.autochannel, guild=interaction.guild)
-        await interaction.response.send_message("Changes have been syncronized from http://auto-chan.io/")
+        try:
+            # Ensure session is valid before starting
+            self.autochannel._ensure_session()
+            await self.manage_auto_voice_channels(self.autochannel, guild=interaction.guild)
+            await interaction.response.send_message("Changes have been syncronized from http://auto-chan.io/")
+        except Exception as e:
+            # Rollback on any error
+            try:
+                self.autochannel.session.rollback()
+            except Exception:
+                # If rollback fails, ensure we have a fresh session
+                self.autochannel._ensure_session()
+            LOG.error(f"Error in sync command: {e}", exc_info=True)
+            await interaction.response.send_message(f"Error during sync: {str(e)}")
 
 
     @sync.error 
@@ -532,11 +560,15 @@ class AutoChannels(commands.Cog):
         """
 
         LOG.debug(f'Channel that was deleted {channel.id}')
-        chan_id_delete = self.autochannel.session.query(Channel).get(channel.id)
-        if chan_id_delete:
-            LOG.debug(f'chan_ID_DELETE: {chan_id_delete}')
-            self.autochannel.session.delete(chan_id_delete)
-            self.autochannel.session.commit()
+        try:
+            chan_id_delete = self.autochannel.session.query(Channel).get(channel.id)
+            if chan_id_delete:
+                LOG.debug(f'chan_ID_DELETE: {chan_id_delete}')
+                self.autochannel.session.delete(chan_id_delete)
+                self.autochannel.session.commit()
+        except Exception as e:
+            self.autochannel.session.rollback()
+            LOG.error(f"Error deleting channel from database: {e}")
 
     @task_metrics_counter
     @commands.Cog.listener()

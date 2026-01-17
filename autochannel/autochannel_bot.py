@@ -37,7 +37,7 @@ SHARD_COUNT = os.getenv('SHARD_COUNT') or 1
 TOKEN = os.getenv('TOKEN')
 VOICE_CHANNEL_PREFIX = os.getenv('VOICE_CHANNEL_PREFIX') or '!VC '
 AUTO_CHANNEL_PREFIX = os.getenv('AUTO_CHANNEL_PREFIX') or '!AC '
-AUTO_CATEGORIES = os.getenv('AUTO_CATEGORIES').lower().split(",") or ['auto-voice']
+AUTO_CATEGORIES = (os.getenv('AUTO_CATEGORIES') or 'auto-voice').lower().split(",")
 TESTING_GUILD_ID = os.getenv('TESTING_GUILD_ID')
 ENV = os.getenv('ENV') or None
 
