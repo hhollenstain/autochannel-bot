@@ -1,0 +1,73 @@
+<div class="row">
+    <div class="col-md-12 mx-auto">
+        <h4>
+            How to use AutoChannel?
+        </h4>
+        <h3>
+            Login? (skip if already logged in)
+        </h3>
+        <ol>
+            <li>On the left side click on the user icon</li>
+            <li> accept the discord authorization</li>
+        </ol>
+        <h3>
+            How to add AutoChannel bot to your server?
+        </h3>
+        <ol>
+            <li>Simply in the navbar or server select page from the left side
+            select the server you want to update</li>
+            <li>If the bot hasn't been added yet, you will get a discord login
+            screen to add the bot to your managed server</li>
+        </ol>
+        <h3>
+            What to do after I added the bot to my server?
+        </h3>
+        <ol>
+            <li>Either click "dashboard" or click your server icon in the navbar</li>
+            <li>In the server category dashboard you can make your desired changes</li>
+            <li>Options you can modify:
+                <ul>
+                    <li>
+                        Enabled: Enables the autochannel to create channels in
+                        this category
+                    </li>
+                    <li>
+                        Prefix: This sets the prefix of each channel created in
+                        your designated category. Must be unique prefix in that
+                        category. This is important as this tells the bot if the
+                        channel is managed by it or a static channel on the
+                        server. (default AC!)
+                    </li>
+                    <li>
+                        Channel size: This sets the size of the channel, which
+                        is the number of users who can connect to the
+                        autocreated channels. (deault 10)
+                    </li>
+                    <li>
+                        Empty count: This sets the number of empty channels the
+                        category should always have. Recommended is the default
+                        of 1, but for larger communities having up to 10 empty
+                        channels will make this easier to find spare rooms.
+                        (default 1)
+                    </li>
+                </ul>
+            </li>
+            <li>
+                For each item updated, please press the check mark next to each
+                entry to make sure it is saved. When successfull you will see a
+                green notification with the updated changes
+            </li>
+            <li>
+                Final step as an admin in your server you just run "!acupdate"
+                for AutoChannel update and will sync the bot with the configurations
+                you just set 
+            </li>
+        </ol>
+    </div>
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <img width="600px" src="{{url_for('static',
+            filename='img/autochannel-instructions-2.gif')}}" >
+        </div>
+    </div>
+</div> 

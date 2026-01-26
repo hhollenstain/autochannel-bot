@@ -3,26 +3,31 @@
 
 ## How to develop?
 
-The makefile is your friend, but have a few perquisites you will need to cover first.
-You will need pipenv, make, gcc (linux) for compiling fun. This readme will not go
-over all this, but should be straight forward. Some info about [pipenv](https://realpython.com/pipenv-guide/#pipenv-introduction)
+The makefile is your friend, but have a few prerequisites you will need to cover first.
+You will need UV, make, gcc (linux) for compiling fun. This readme will not go
+over all this, but should be straight forward. Some info about [UV](https://github.com/astral-sh/uv)
+
+Install UV:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 
 
 ### Running commands
 
 #### make init
-does the base install of the source package through pipenv that should already be installed,
-if a local pipenv isn't yet setup this is when it will happen (python 3.6.8)
+does the base install of the source package through UV that should already be installed,
+if a local environment isn't yet setup this is when it will happen (python 3.10+)
 
 #### make check
-Designed to do linting and pipenv checking for dependencies and such
+Designed to do linting and dependency checking
 
 #### make test
-This is designed to install fakahbot package and testing packages if I ever decided to write tests for it :shrug:
+This is designed to install autochannel package and testing packages if I ever decided to write tests for it :shrug:
 
 #### make dist
-Makes is dist package for system built on.
+Makes the dist package for system built on.
 
 #### make live
 This run only on image builds in my CI/CD pipeline just install the package in the image and pushes into image repo.
@@ -45,11 +50,11 @@ You will need to copy example.env to .env and update the value inside
 ### Now Running the bot locally
 run:
 ```bash
-pipenv run autochannel
+uv run autochannel
 ```
 
 ```bash
-pipenv run autochannel
+uv run autochannel
 Loading .env environment variables...
 [2019-08-02 17:57:20][INFO] [autochannel.autochannel_bot.main:52] LONG LIVE AutoChannel bot
 [2019-08-02 17:57:20][DEBUG] [asyncio.__init__:54] Using selector: EpollSelector

@@ -1,0 +1,88 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>
+{% block title %}
+    {% if title %}{{ title }} - AutoChannel{% else %}AutoChannel Bot{% endif %}
+{% endblock %}
+        </title>
+
+{% block styles %}
+    <!-- Bootstrap CSS CDN -->
+        <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+        <link rel="stylesheet"
+        href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css"
+        integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4"
+        crossorigin="anonymous">
+        <link
+        href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css"
+        rel="stylesheet">
+        <link rel="stylesheet" href="{{
+        url_for('static',filename='css/sidebar.css') }}">
+        <link rel="stylesheet" href="{{
+        url_for('static',filename='css/animate.css') }}">
+        <link rel="stylesheet" href="{{url_for('static', filename='css/toastr.css')}}">
+        
+{% endblock %}
+    </head>
+    <body >
+
+{% block top_navbar %}
+{% include 'includes/top-nav.html' %}
+{% endblock %}
+<div class="wrapper">
+{% block side_navbar %}
+{% include 'includes/side-nav.html' %}
+{% endblock %}
+        <!-- <div id="content">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+        
+                    <button type="button" id="sidebarCollapse" class="btn btn-info">
+                        <i class="fas fa-align-left"></i>
+                        <span>Toggle Sidebar</span>
+                    </button>
+        
+                </div>
+            </nav> -->
+            <!-- <div id="content">
+                    <button type="button" id="sidebarCollapse" class="navbar-btn">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+            <div> -->
+
+{% block content %}
+           <div id="content" class="">   
+                <div class="container">
+                    {# application content needs to be provided in the app_content block #}
+                    {% block app_content %}{% endblock %}
+                </div>
+            </div>
+{% endblock %}
+        </div>
+{% include 'includes/footer.html' %}
+    </div>
+{% block scripts %}
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+        <script src="{{ url_for('static',filename='js/popper.js')}}"></script> 
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"></script>
+        <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
+        <script src="{{ url_for('static',filename='js/sidebar.js')}}"></script> 
+        <script src="{{ url_for('static',filename='js/toastr.js')}}"></script> 
+        <script defer src="https://use.fontawesome.com/releases/v5.0.13/js/all.js" crossorigin="anonymous"></script>
+        <script defer src="https://use.fontawesome.com/releases/v5.0.13/js/fontawesome.js" crossorigin="anonymous"></script>
+        <!-- jQuery CDN - Slim version (=without AJAX)
+        <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script> -->
+        <!-- Popper.JS -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js" integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ" crossorigin="anonymous"></script>
+        <!-- Bootstrap JS -->
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>
+{% endblock %}
+    </body>
+</html>
+
+

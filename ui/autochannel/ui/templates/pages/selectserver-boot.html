@@ -1,0 +1,30 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}
+Managed servers for {{session['user']['username'] }}
+{% endblock %}
+
+{% block app_content %}
+<div class="container-fluid">
+    <div class="row align-items-center">
+            <div class="d-flex justify-content-center col-md-12 mx-auto" style="border-bottom:2px solid #6d7fcc"  >
+                <div>
+                    <h3 class="d-inline">{{ session['user']['username'] }}: Guilds</h3> 
+                </div>
+            </div>  
+    </div>
+    <div class="row align-items-center">
+        <div class="col-md-12 mx-auto animated bounceInUp">
+            <div class="mx-auto d-flex justify-content-center flex-wrap">
+
+{% for server in guilds %}
+                <a class="d-inline" href="{{url_for('mod_site.dashboard_guild', user_id=user_id,guild_id=guilds[server]['id'])}}" style="color:#FFF">
+                    <img src="{{guilds[server]['icon']}}" style="width:128px; border:2px #FFF solid;"
+                    class="my-3 d-inline img-circle select-server" data-toggle="tooltip" title="{{server}}" / >
+                </a>
+{% endfor %} 
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "layouts/base.html" %}
+
+
+{% block title %}
+{% for g_info in guild %}
+Categories for {{guild[g_info]['name']}}: {{session['user']['username'] }}
+{% endfor %}
+{% endblock %}
+
+{% block app_content %}
+{% for g_info in guild %}
+<div class="container-fluid h-100">
+        <div class="row align-items-center h-100">
+            <div class="d-flex justify-content-center col-md-12 mx-auto" style="border-bottom:2px solid #6d7fcc" >
+                <div>
+                    <h2 class="d-inline">{{guild[g_info]['name']}}</h2> 
+                    <img class="d-inline img-circle" src="{{guild[g_info]['icon']}}" width="64px" class="img-circle"/>
+                </div>
+            </div>  
+        </div>
+        <div class="row mt-2">
+            <div class="d-flex justify-content-center col-md-12 mx-auto">
+                <h4>
+                    AutoChannel bot was added:  <a class="btn btn-primary" href="/dashboard/{{user_id}}/{{guild_id}}" role="button">Dashboard</a>
+                </h4>
+
+            </div>
+        </div>
+        {% include 'includes/instructions.html' %}
+
+</div>
+{% endfor %}
+{% endblock %}

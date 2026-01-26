@@ -1,0 +1,60 @@
+<nav class="navbar navbar-expand-md navbar-light">
+    <div class="row w-100 flex-nowrap">
+        <div>
+            <button type="button" id="sidebarCollapse" class="navbar-btn
+            button-sb active float-left">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    <!-- <div class="mx-auto d-none d-md-block">
+        <h2>
+            {% if title %}{{ title }}{% else %}AutoChannel Bot{% endif %}
+        </h2>
+    </div> -->
+        <div class="col-md-10 d-flex justify-content-center ml-50" style="height: 45px;">
+    {% if session['guilds'] is defined %}
+            <div class="ml-auto d-flex">
+    {% for guild in session['guilds'] %}
+                <div style="width:50px;" class="px-2">
+                    <a class="hvrcenter flex-nowrap" style="display: inline; padding-bottom: 15px;" href="/dashboard/{{session['api_token']['user_id']}}/{{session['guilds'][guild]['id']}}">
+                        <img style="display:inline" width="32px" class="img-circle"
+                        src="{{session['guilds'][guild]['icon']}}" title="{{session['guilds'][guild]['name']}}" /> 
+                    </a>
+                </div>
+    {% endfor %}
+            </div>
+    {% endif %}
+            <div class="ml-auto">
+                <a class="hvrcenter" href="{{url_for('mod_site.instructions')}}">How-To</a>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="collapse navbar-collapse" id="navbarCollapse">
+        <!-- <div class="navbar-nav">
+            <a href="#" class="nav-item nav-link active">Home</a>
+            <a href="#" class="nav-item nav-link">Profile</a>
+            <a href="#" class="nav-item nav-link">Messages</a>
+            <a href="#" class="nav-item nav-link disabled" tabindex="-1">Reports</a>
+        </div> -->
+
+        <div class="navbar-nav ml-auto">
+<!-- {% if session['user'] is defined %}
+            <div class="dropdown">
+                <button type="button" class="btn btn-primary" data-toggle="dropdown">
+                   {{session['user']['username']}}
+                </button>
+                <div class="dropdown-menu">
+                    <a class="dropdown-item" href="/dashboard">Servers</a>
+                    <a class="dropdown-item" href="/logout">Logout</a>
+                </div>
+            </div>
+{% else %}
+            <a href="/login" class="nav-item nav-link"> Login </a>
+{% endif %} -->
+        </div>
+    </div>
+</nav>

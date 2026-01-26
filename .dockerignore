@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.egg-info
+*.egg
+.eggs
+dist
+build
+
+# Environment
+.env
+.env.*
+*.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Old package management (optional - can remove after migration)
+Pipfile
+Pipfile.lock
+
+# Documentation
+# Note: README.md is needed for pyproject.toml build, so we don't exclude it
+
+# Docker
+Dockerfile
+ui/Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# UI specific build artifacts (not source files)
+# Note: ui/ source files are needed for UI builds
+ui/**/__pycache__
+ui/**/*.pyc
+ui/*.db
+ui/.venv
+ui/**/*.egg-info
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+
+# Misc
+Makefile
