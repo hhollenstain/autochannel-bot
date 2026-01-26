@@ -1,0 +1,50 @@
+        <!-- Sidebar  -->
+        <nav id="sidebar" class="active">
+            <div class="sidebar-header">
+                <a href="{{url_for('mod_site.index')}}">
+                    <h3><img width="35px" src="{{url_for('static',
+                        filename='img/auto-chan-white.png')}}" >  Auto-chan</h3>
+                    <strong><img width="35px" src="{{url_for('static',
+                    filename='img/auto-chan-white.png')}}" > </strong>
+                </a>
+            </div>
+ 
+            
+{% if session['user'] is defined %}
+
+            <ul class="list-unstyled components">
+                <li class="active mb-1">
+                    <a href="#homeSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                        <i class="fas fa-user"></i>
+                        <h6 class="expanded-text">{{session['user']['username']}}</h6>
+                    </a>
+                    <ul class="collapse list-unstyled" id="homeSubmenu">
+                        <li>
+                            <a href="/dashboard">Severs</a>
+                        </li>
+                        <li>
+                            <a href="/logout">Logout</a>
+                        </li>
+{% else %}
+                        <a href="/login" class="nav-item nav-link"> 
+                            <i class="fas fa-user"></i>
+                            <h6 class="expanded-text">Login</h6>
+                        </a>
+{% endif %}
+                    </ul>
+                </li>
+{% if session['guilds'] is defined %}
+{% for guild in session['guilds'] %}
+                <li class="py-2 select-server-hover animated bounceInUp">
+                    <a class="select-server-hover" style="display: inline" href="/dashboard/{{session['api_token']['user_id']}}/{{session['guilds'][guild]['id']}}">
+                        <img style="display:inline" width="32px" class="img-circle"
+                        src="{{session['guilds'][guild]['icon']}}" /> 
+                        <h6 class="expanded-text">{{session['guilds'][guild]['name']}}</h6>
+                    </a>
+                </li>
+{% endfor %}
+{% endif %}
+ 
+            </ul>
+    
+        </nav>

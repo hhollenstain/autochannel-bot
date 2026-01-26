@@ -1,0 +1,52 @@
+[project]
+name = "autochannel-ui"
+version = "2.2.1"
+description = "AutoChannel Discord Bot Web UI"
+requires-python = ">=3.10"
+authors = [
+    {name = "AutoChannel Contributors"}
+]
+license = {text = "MIT"}
+keywords = ["discord", "bot", "web", "ui", "autochannel"]
+
+dependencies = [
+    "coloredlogs",
+    "flask",
+    "flask-wtf",
+    "flask-bcrypt",
+    "flask-bootstrap",
+    "flask-compress",
+    "flask-debugtoolbar",
+    "flask-migrate",
+    "flask-script",
+    "flask-sqlalchemy",
+    "itsdangerous<2.1",
+    "prometheus-flask-exporter",
+    "psycopg2-binary",
+    "pyyaml",
+    "requests",
+    "requests-oauthlib",
+    "waitress",
+    "wtforms",
+    "wtforms-alchemy",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pylint",
+    "sure",
+]
+
+[project.scripts]
+autochannel_ui = "run:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["autochannel/ui"]
+
+[tool.uv]
+dev-dependencies = []

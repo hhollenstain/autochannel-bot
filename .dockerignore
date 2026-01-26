@@ -32,8 +32,17 @@ Pipfile.lock
 
 # Docker
 Dockerfile
+ui/Dockerfile
 .dockerignore
 docker-compose*.yml
+
+# UI specific build artifacts (not source files)
+# Note: ui/ source files are needed for UI builds
+ui/**/__pycache__
+ui/**/*.pyc
+ui/*.db
+ui/.venv
+ui/**/*.egg-info
 
 # Testing
 .pytest_cache

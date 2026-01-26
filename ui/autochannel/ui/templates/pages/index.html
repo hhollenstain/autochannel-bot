@@ -1,0 +1,63 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}
+AutoChannel - Index
+{% endblock %}
+
+{% block app_content %}
+<div class="container-fluid">
+    <div class="row align-items-center pb-2">
+        <div class="d-flex justify-content-center col-md-12 mx-auto" style="border-bottom:2px solid #6d7fcc"  >
+            <div>
+                <h2>
+                   Welcome to AutoChannel
+                    <a href="{{url_for('mod_site.dashboard_index')}}" >
+                        <button type="button" class="btn btn-primary">
+                        Add Auto-chan!
+                        </button>
+                    </a> 
+                </h2>  
+ 
+            </div>
+        </div>  
+    </div>
+    <div class="row h-100">
+        <div class="col-md-6 mx-auto">
+            <h4>
+                What is AutoChannel?
+            </h4>
+            <p>
+                AutoChannel is here for Admins/moderators/channel managers to
+                facilitate managing voice channels. This can help you moderate
+                small to large discord servers with over 1 million+ active users.
+            </p>
+            <p>
+                Auto-chan (AutoChannels friendly bot!) does this by watching
+                categories you specified to always have empty channels. You can
+                tell Auto-chan to watch specific categories and always make sure
+                it has 1-10 empty channels and you can set how many users can be
+                in each channel generated.  You might think but how does this
+                make my life easier? This means you will no longer have excess
+                channels and not have to scroll endless looking for groups or
+                see how many rooms are occupied.
+            </p>
+            <p>
+                Auto-chan also checks to make sure you don't have too many
+                channels in your categories. If people leave it will
+                automatically clean up empty channels.
+            </p>
+        </div>
+        <div class="col-md-6 mx-auto">
+            <h4>Auto-chan dashboards</h4>
+            <p>
+                <img width="400px" src="{{url_for('static',
+                filename='img/autochannels-guild.png' )}}" >
+            </p>
+            <p>
+                <img width="400px" src="{{url_for('static',
+                filename='img/autochannel-custom.png' )}}" >
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

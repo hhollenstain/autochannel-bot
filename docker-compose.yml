@@ -1,7 +1,38 @@
 version: '3'
 services:
-  fakah:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
-    - .env
-    image: hhollenstain/autochannel-bot:latest
+      - .env
+    # image: hhollenstain/autochannel:latest
     restart: always
+    depends_on:
+      - ui
+    command: ["autochannel"]
+    environment:
+      - SQLALCHEMY_DATABASE_URI=${SQLALCHEMY_DATABASE_URI}
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    # image: hhollenstain/autochannel:latest
+    restart: always
+    ports:
+      - '5100:5000'
+    command: ["autochannel_ui"]
+    environment:
+      - SQLALCHEMY_DATABASE_URI=${SQLALCHEMY_DATABASE_URI}
+      - AC_TOKEN=${AC_TOKEN}
+      - APP_ID=${APP_ID}
+      - FLASK_APP=${FLASK_APP:-run.py}
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - OAUTH2_CLIENT_ID=${OAUTH2_CLIENT_ID}
+      - OAUTH2_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET}
+      - OAUTH2_REDIRECT_URI=${OAUTH2_REDIRECT_URI}
+      - REDIS_URL=${REDIS_URL:-}
+      - TOKEN=${TOKEN}

@@ -1,11 +1,12 @@
 import os
 import logging
 from contextlib import contextmanager
+from typing import List, Dict, Optional
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker, joinedload, selectinload
 from sqlalchemy.exc import SQLAlchemyError, DisconnectionError
 """AC imports"""
-from autochannel.data.models import Guild, Category
+from autochannel.data.models import Guild, Category, Channel
 
 LOG = logging.getLogger(__name__)
 
@@ -50,3 +51,33 @@ class DB:
             raise
         finally:
             session.close()
+    
+    def get_category_with_channels(self, session: Session, category_id: int) -> Optional[Category]:
+        """Get category with channels eagerly loaded"""
+        return (session.query(Category)
+                .options(selectinload(Category.channels))
+                .get(category_id))
+    
+    def get_categories_batch(self, session: Session, category_ids: List[int]) -> Dict[int, Category]:
+        """Get multiple categories with channels in a single query"""
+        categories = (session.query(Category)
+                     .options(selectinload(Category.channels))
+                     .filter(Category.id.in_(category_ids))
+                     .all())
+        return {cat.id: cat for cat in categories}
+    
+    def get_channels_batch(self, session: Session, channel_ids: List[int]) -> Dict[int, Channel]:
+        """Get multiple channels in a single query"""
+        channels = (session.query(Channel)
+                   .filter(Channel.id.in_(channel_ids))
+                   .all())
+        return {ch.id: ch for ch in channels}
+    
+    def get_categories_by_guild(self, session: Session, guild_id: int, enabled: Optional[bool] = None) -> List[Category]:
+        """Get categories for a guild with optional enabled filter, with channels eagerly loaded"""
+        query = (session.query(Category)
+                .options(selectinload(Category.channels))
+                .filter(Category.guild_id == guild_id))
+        if enabled is not None:
+            query = query.filter(Category.enabled == enabled)
+        return query.all()
