@@ -1,21 +1,17 @@
-import traceback
-
 from typing import Optional
 import asyncio
-import datetime
-from unicodedata import category
-import discord
 import logging
-import queue 
 import random
 import re
 import time
+
+import discord
 from discord import app_commands
 from discord.ext import commands
 from profanityfilter import ProfanityFilter
 """AC imports"""
 from autochannel.lib import utils
-from autochannel.lib.metrics import command_metrics_counter, task_metrics_counter, queue_stats_gauge, COMMAND_SUMMARY_ACUPDATE
+from autochannel.lib.metrics import command_metrics_counter, task_metrics_counter, queue_stats_gauge
 from autochannel.data.models import Guild, Category, Channel
 
 LOG = logging.getLogger(__name__)
@@ -53,8 +49,10 @@ class AutoChannels(commands.Cog):
         self.queue = asyncio.Queue()
         self.next = asyncio.Event()
 
-        self.autochannel.loop.create_task(self.queue_loop())
-        self.autochannel.loop.create_task(self.loop_stats())
+    async def cog_load(self) -> None:
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.queue_loop())
+        loop.create_task(self.loop_stats())
 
     async def loop_stats(self):
         """Loop to track event queue size"""
@@ -226,9 +224,8 @@ class AutoChannels(commands.Cog):
                     try:
                         chan_id_add = Channel(id=chan.id, cat_id=db_cat.id, chan_type='voice', num_suffix=int(self.get_ac_channel(chan)))
                         self.autochannel.session.add(chan_id_add)
-                    except:
+                    except Exception:
                         LOG.info(f'skipping issue for: guild={server.name}, channel={chan.name}')
-                        pass
                 
                 if len(missing_db_channels) > 0:
                     self.autochannel.session.commit()
@@ -339,15 +336,14 @@ class AutoChannels(commands.Cog):
         await interaction.response.send_message("Changes have been syncronized from http://auto-chan.io/")
 
 
-    @sync.error 
+    @sync.error
     async def on_sync_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
-        """_summary_
-
-        Args:
-            interaction (discord.Interaction): _description_
-            error (app_commands.AppCommandError): _description_
-        """
-        await interaction.response.send_message(f"Error {error}")
+        LOG.exception("sync command failed: %s", error)
+        msg = f"Error {error}"
+        if interaction.response.is_done():
+            await interaction.followup.send(msg)
+        else:
+            await interaction.response.send_message(msg)
 
     @app_commands.describe(category='name of category', channel_name='custom name of channel')
     @app_commands.command(name="vc", description="create voice channel")
@@ -382,18 +378,25 @@ class AutoChannels(commands.Cog):
         if not category_obj.custom_enabled:
             raise ACDisabledCustomCategory(f'Category {category_name.name} is disabled. To use custom channels in this category an **ADMIN** must enable:  http://auto-chan.io')
 
-        created_vc= await interaction.guild.create_voice_channel(f'{category_obj.custom_prefix} {vc_suffix}', overwrites={}, category=category_name, reason='AutoChannel bot automation')
+        created_vc = await interaction.guild.create_voice_channel(
+            f'{category_obj.custom_prefix} {vc_suffix}',
+            overwrites={},
+            category=category_name,
+            reason='AutoChannel bot automation',
+        )
         invite_link = await self.createVCInvite(interaction, created_vc)
 
-        await interaction.channel.send(f'AutoChannel made `{interaction.user}` a channel `{created_vc.name}`')
         await interaction.response.send_message(invite_link)
+        if interaction.channel is not None:
+            await interaction.channel.send(
+                f'AutoChannel made `{interaction.user}` a channel `{created_vc.name}`'
+            )
 
         await asyncio.sleep(60)
-        if  len(created_vc.members) < 1:
+        if len(created_vc.members) < 1:
             try:
                 await self.vc_delete_channel(created_vc, reason='No one joined the custom channel after 60 seconds')
-            except:
-                """annoying to see this error doesn't add value to the end user"""
+            except Exception:
                 pass
 
 
@@ -424,23 +427,22 @@ class AutoChannels(commands.Cog):
             for category in categories if current.lower() in category.lower()
         ]
 
-    @vc.error 
+    @vc.error
     async def on_vc_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        """_summary_
-
-        Args:
-            interaction (discord.Interaction): _description_
-            error (app_commands.AppCommandError): _description_
-        """        
-        msg = error
+        LOG.exception("vc command failed: %s", error)
+        msg = str(error)
         if isinstance(error, ACUnknownCategory):
-            existing_cats = self.cat_names(ctx)
-            msg += f'**Unknown category:** How-To: `!vc <category> <name of channel>`   **Category list:** {existing_cats}'
-        if isinstance(error, VCProfaneWordused):
-            msg += 'Auto-chan hates bad words, please be nice'
-            
-        traceback.print_exc()
-        await interaction.response.send_message(msg)
+            existing_cats = ', '.join(self.getGuildCategories(interaction))
+            msg = (
+                f'{msg} **Unknown category:** How-To: `/vc <category> <name of channel>` '
+                f'**Category list:** {existing_cats}'
+            )
+        elif isinstance(error, VCProfaneWordused):
+            msg += ' Auto-chan hates bad words, please be nice'
+        if interaction.response.is_done():
+            await interaction.followup.send(msg)
+        else:
+            await interaction.response.send_message(msg)
 
 
     def valid_auto_channel(self, v_state: discord.VoiceState) -> bool:

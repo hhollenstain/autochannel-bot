@@ -7,15 +7,11 @@ import autochannel
 INSTALL_REQUIREMENTS = [
     # 'aiohttp==3.6.3',
     'aiohttp',
-    'asyncio',
     'aiomeasures',
     'coloredlogs',
     'dblpy',
     'discord.py==2.3.2',
-    'dblpy',
     'flask_sqlalchemy',
-    # 'pip==18.0',
-    'pip',
     'profanityfilter',
     'prometheus_client',
     'psycopg2-binary',
@@ -30,7 +26,10 @@ TEST_REQUIREMENTS = {
         'pytest',
         'pylint',
         'sure',
-        ]
+        ],
+    'dev': [
+        'ruff',
+    ],
     }
 
 setup(

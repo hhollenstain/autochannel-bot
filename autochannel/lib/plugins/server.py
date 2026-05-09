@@ -21,20 +21,21 @@ class Server(commands.Cog):
         self.autochannel.loop.create_task(utils.list_servers(self.autochannel))
         self.autochannel.loop.create_task(utils.list_users(self.autochannel))
 
+    @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
+        msg = None
         if isinstance(error, commands.CommandInvokeError):
             LOG.error(error)
             msg = '{} Error running the command'.format(ctx.message.author.mention)
-        if isinstance(error, commands.CommandNotFound):
+        elif isinstance(error, commands.CommandNotFound):
             msg = '{} the command you ran does not exist please use !help for assistance'.format(ctx.message.author.mention)
-        if isinstance(error, commands.CheckFailure):
+        elif isinstance(error, commands.CheckFailure):
             msg = ':octagonal_sign: you do not have permission to run this command, {}'.format(ctx.message.author.mention)
-        if isinstance(error, commands.MissingRequiredArgument):
+        elif isinstance(error, commands.MissingRequiredArgument):
             msg = 'Missing required argument: ```{}```'.format(error)
 
-        if not msg:
+        if msg is None:
             msg = 'Oh no, I have no idea what I am doing! {}'.format(error)
-
 
         await ctx.send('{}'.format(msg))
 
