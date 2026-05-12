@@ -20,3 +20,4 @@ pip-delete-this-directory.txt
 
 # editor
 .vscode
+.ruff-venv/

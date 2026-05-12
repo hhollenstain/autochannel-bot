@@ -147,7 +147,7 @@ async def list_users(client):
     """
     await client.wait_until_ready()
     while not client.is_closed():
-        numb_of_clients = len(set(client.get_all_members()))
+        numb_of_clients = len(client.users)
         bot_user_count(numb_of_clients)
         LOG.debug(f'Number Of clients: {numb_of_clients}')
         await asyncio.sleep(600)

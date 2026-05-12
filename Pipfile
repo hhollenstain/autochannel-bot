@@ -5,6 +5,7 @@ name = "pypi"
 
 [dev-packages]
 "pep8" = "*"
+ruff = "*"
 
 [packages]
 autochannel = {editable = true, path = "."}
