@@ -1,6 +1,8 @@
-FROM python:3.10-alpine
+FROM python:3.12-slim-bookworm
 
-RUN apk add gcc g++ musl-dev libffi-dev libxml2-dev libxslt-dev git make postgresql-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ libffi-dev libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY . /app
 WORKDIR /app

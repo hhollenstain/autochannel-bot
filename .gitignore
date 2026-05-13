@@ -21,3 +21,4 @@ pip-delete-this-directory.txt
 # editor
 .vscode
 .ruff-venv/
+.phase2-venv/

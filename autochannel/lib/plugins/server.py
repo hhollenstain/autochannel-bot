@@ -1,3 +1,4 @@
+import asyncio
 import discord
 import logging
 import random
@@ -17,9 +18,10 @@ class Server(commands.Cog):
     async def on_ready(self):
         LOG.info('Logged in as {}'.format(self.autochannel.user.name))
         await self.autochannel.change_presence(status=discord.Status.online, activity=Game('Waking up, making coffee...'))
-        self.autochannel.loop.create_task(utils.change_status(self.autochannel))
-        self.autochannel.loop.create_task(utils.list_servers(self.autochannel))
-        self.autochannel.loop.create_task(utils.list_users(self.autochannel))
+        loop = asyncio.get_running_loop()
+        loop.create_task(utils.change_status(self.autochannel))
+        loop.create_task(utils.list_servers(self.autochannel))
+        loop.create_task(utils.list_users(self.autochannel))
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):

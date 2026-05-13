@@ -3,29 +3,22 @@
 Tamago BOT LIVES!
 """
 import asyncio
-import random
-import os
-import discord
-import importlib
 import logging
+import os
+
 import coloredlogs
-import sys
-from discord import Game
-from discord.ext import commands
-from discord.ext.commands import Bot
-"""metrics"""
+import discord
 from prometheus_client import start_http_server
-"""AC Imports"""
-from autochannel.lib import utils
+
 from autochannel.autochannel import AutoChannel
-from autochannel.data.models import Guild, Category
+from autochannel.lib import utils
 
 EXTENSIONS = [
     'autochannel.lib.plugins.autochannels',
-    # 'autochannel.lib.plugins.ac_dbl', broken requires some fixes
+    'autochannel.lib.plugins.ac_dbl',
     'autochannel.lib.plugins.join',
     'autochannel.lib.plugins.server',
-    ]
+]
 
 LOG = logging.getLogger(__name__)
 
@@ -37,7 +30,8 @@ SHARD_COUNT = os.getenv('SHARD_COUNT') or 1
 TOKEN = os.getenv('TOKEN')
 VOICE_CHANNEL_PREFIX = os.getenv('VOICE_CHANNEL_PREFIX') or '!VC '
 AUTO_CHANNEL_PREFIX = os.getenv('AUTO_CHANNEL_PREFIX') or '!AC '
-AUTO_CATEGORIES = os.getenv('AUTO_CATEGORIES').lower().split(",") or ['auto-voice']
+_auto_cat = os.getenv('AUTO_CATEGORIES') or 'auto-voice'
+AUTO_CATEGORIES = [c.strip() for c in _auto_cat.lower().split(',') if c.strip()]
 TESTING_GUILD_ID = os.getenv('TESTING_GUILD_ID')
 ENV = os.getenv('ENV') or None
 
@@ -65,7 +59,9 @@ async def runAC():
 
     LOG.info("LONG LIVE AutoChannel bot")
     intents = discord.Intents.default()
-    LOG.info(f'Intents: {intents}')
+    intents.message_content = True  # prefix commands (!autochannel, etc.)
+    intents.members = True  # user counts / member-aware features
+    LOG.info('Intents: %s', intents)
     autochannel = AutoChannel(
                     shard_id=int(SHARD), 
                     shard_count=int(SHARD_COUNT),
