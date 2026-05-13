@@ -1,21 +1,16 @@
 from typing import Optional
 import asyncio
 import logging
-import random
-import re
-import time
-
 import discord
 from discord import app_commands
 from discord.ext import commands
-from profanityfilter import ProfanityFilter
+from better_profanity import profanity
 """AC imports"""
 from autochannel.lib import utils
 from autochannel.lib.metrics import command_metrics_counter, task_metrics_counter, queue_stats_gauge
 from autochannel.data.models import Guild, Category, Channel
 
 LOG = logging.getLogger(__name__)
-pf = ProfanityFilter(no_word_boundaries = True)
 
 class ACMissingChannel(commands.CommandError):
     """Custom Exception class for unknown category errors."""
@@ -56,7 +51,7 @@ class AutoChannels(commands.Cog):
 
     async def loop_stats(self):
         """Loop to track event queue size"""
-        while not self.autochannel.is_closed():
+        while not self.autochannel.is_closed:
             LOG.debug(f'UPDATING QUEUE STATS {self.queue.qsize()}')
             queue_stats_gauge(self.queue.qsize())
             await asyncio.sleep(3)
@@ -65,13 +60,13 @@ class AutoChannels(commands.Cog):
         """Our main task loop."""
         await self.autochannel.wait_until_ready()
 
-        while not self.autochannel.is_closed():
+        while not self.autochannel.is_closed:
             LOG.info(f'QUEUE SIZE: {self.queue.qsize()}')
             await asyncio.sleep(.25)
             task = await self.queue.get()
 
             if not task.get('type'):
-                self.autochannel.loop.call_soon_threadsafe(self.next.set)
+                asyncio.get_running_loop().call_soon_threadsafe(self.next.set)
                 continue
 
             LOG.info(f'Running queue Task: {task}')
@@ -96,7 +91,7 @@ class AutoChannels(commands.Cog):
             except Exception as e:
                 LOG.error(e)
 
-            self.autochannel.loop.call_soon_threadsafe(self.next.set)
+            asyncio.get_running_loop().call_soon_threadsafe(self.next.set)
             await self.next.wait()
 
 
@@ -370,7 +365,7 @@ class AutoChannels(commands.Cog):
         """Checks if there is channel name and if there is profanity used"""
         if channel_name:
             vc_suffix = channel_name
-            if pf.is_profane(channel_name):
+            if profanity.contains_profanity(channel_name):
                 raise VCProfaneWordused(f'Used a profane word when creating a custom voice channel')
         else:
             vc_suffix = self.vc_channel_number(interaction, category, category_obj)

@@ -112,12 +112,12 @@ async def change_status(client):
         GAMES = os.environ.get('GAMES').split(",")
         sts = cycle(GAMES)
 
-        while not client.is_closed():
+        while not client.is_closed:
             current_status = next(sts)
             await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
             await asyncio.sleep(300)
     else:
-        while not client.is_closed():
+        while not client.is_closed:
             guild_count = len(client.guilds)
             current_status = 'Serving {} Discord servers!'.format(guild_count)
             await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
@@ -131,7 +131,7 @@ async def list_servers(client):
         client {[type]} -- [description]
     """
     await client.wait_until_ready()
-    while not client.is_closed():
+    while not client.is_closed:
         server_list = []
         for server in client.guilds:
             server_list.append(server.name)
@@ -146,7 +146,7 @@ async def list_users(client):
         client {[type]} -- [description]
     """
     await client.wait_until_ready()
-    while not client.is_closed():
+    while not client.is_closed:
         numb_of_clients = len(client.users)
         bot_user_count(numb_of_clients)
         LOG.debug(f'Number Of clients: {numb_of_clients}')

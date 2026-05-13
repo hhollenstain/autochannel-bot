@@ -1,35 +1,50 @@
-import dbl
-import discord
-from discord.ext import commands, tasks
-
+"""Top.gg guild count posting (replaces legacy dblpy)."""
 import asyncio
 import logging
 
+import topgg
+from discord.ext import commands
+
 LOG = logging.getLogger(__name__)
 
-class DiscordBotsOrgAPI(commands.Cog):
-    """Handles interactions with the discordbots.org API"""
 
-    def __init__(self, autochannel):
-        self.autochannel = autochannel
-        self.token = self.autochannel.dbl_token 
-        self.dblpy = dbl.DBLClient(self.autochannel, self.token)
-        self.updating = self.autochannel.loop.create_task(self.update_stats())
+class TopGGPostCog(commands.Cog):
+    """Posts guild count to Top.gg periodically when ``DBL_TOKEN`` is set."""
 
-    async def update_stats(self):
-        """This function runs every 30 minutes to automatically update your server count"""
-        while not self.autochannel.is_closed():
-            if self.token: 
-                LOG.info('Attempting to post server count')
-                try:
-                    await self.dblpy.post_guild_count()
-                    LOG.info('Posted server count ({})'.format(self.dblpy.guild_count()))
-                except Exception as e:
-                    LOG.exception('Failed to post server count\n{}: {}'.format(type(e).__name__, e))
-            else:
-                LOG.info('Skipping DBL guild count, no API key')
-            
+    def __init__(self, bot):
+        self.bot = bot
+        self._task: asyncio.Task | None = None
+        self._client: topgg.DBLClient | None = None
+
+    def cog_unload(self):
+        if self._task and not self._task.done():
+            self._task.cancel()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        token = self.bot.dbl_token
+        if not token:
+            LOG.info('Skipping Top.gg stats: no DBL_TOKEN')
+            return
+        if self._task is not None and not self._task.done():
+            return
+        self._client = topgg.DBLClient(token, default_bot_id=self.bot.user.id)
+        self._task = asyncio.create_task(self._post_loop())
+
+    async def _post_loop(self):
+        assert self._client is not None
+        while not self.bot.is_closed:
+            try:
+                kwargs = {'guild_count': len(self.bot.guilds)}
+                if getattr(self.bot, 'shard_count', None):
+                    kwargs['shard_count'] = self.bot.shard_count
+                    kwargs['shard_id'] = self.bot.shard_id
+                await self._client.post_guild_count(**kwargs)
+                LOG.info('Posted guild count %s to Top.gg', len(self.bot.guilds))
+            except Exception:
+                LOG.exception('Failed to post guild count to Top.gg')
             await asyncio.sleep(1800)
 
-def setup(autochannel):
-    autochannel.add_cog(DiscordBotsOrgAPI(autochannel))
+
+async def setup(bot):
+    await bot.add_cog(TopGGPostCog(bot))

@@ -4,8 +4,7 @@
 ## How to develop?
 
 The makefile is your friend, but have a few perquisites you will need to cover first.
-You will need pipenv, make, gcc (linux) for compiling fun. This readme will not go
-over all this, but should be straight forward. Some info about [pipenv](https://realpython.com/pipenv-guide/#pipenv-introduction)
+You will need pipenv, make, and a C toolchain when building wheels locally. This project targets **Python 3.12** and **discord.py 2.5.x**. Some info about [pipenv](https://realpython.com/pipenv-guide/#pipenv-introduction)
 
 
 
@@ -13,7 +12,7 @@ over all this, but should be straight forward. Some info about [pipenv](https://
 
 #### make init
 does the base install of the source package through pipenv that should already be installed,
-if a local pipenv isn't yet setup this is when it will happen (python 3.6.8)
+if a local pipenv isn't yet setup this is when it will happen (Python 3.12)
 
 #### make check
 Designed to do linting and pipenv checking for dependencies and such
@@ -41,8 +40,13 @@ You will need to copy example.env to .env and update the value inside
 | `VOICE_CHANNEL_PREFIX` | The prefix the voice channels the bot manages | NO | "!F" |
 | `AUTO_CATEGORIES` | What categories to watch and auto channel generation | YES | "auto-voice" |
 | `AUTO_CHANNEL_PREFIX` | the prefix used to mark auto channels| NO | "!AC" |
+| `SQLALCHEMY_DATABASE_URI` | Postgres URL; bare `postgresql://` is upgraded to `postgresql+psycopg://` (psycopg v3) | YES | N/A |
+| `DBL_TOKEN` | Top.gg API token for automatic guild count posting | NO | N/A |
 
-### Now Running the bot locally
+### Discord developer portal
+
+Enable **Message Content Intent** and **Server Members Intent** for prefix commands (`!autochannel`) and member-related metrics.
+
 run:
 ```bash
 pipenv run autochannel

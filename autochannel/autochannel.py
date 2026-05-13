@@ -1,12 +1,14 @@
 import logging
 
 import discord
+from discord.ext import commands
 
 from autochannel.data.database import DB
 
 log = logging.getLogger('discord')
 
-class AutoChannel(discord.ext.commands.Bot):
+
+class AutoChannel(commands.Bot):
     """A modified discord.Client class
 
     This mod dispatches most events to the different plugins.
