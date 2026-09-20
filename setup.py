@@ -1,5 +1,5 @@
 """``AutoChannel-Bot`` lives on
-https://github.com/hhollenstain/autochannel-bot
+   https://github.com/hhollenstain/autochannel-bot
 """
 from setuptools import setup, find_packages
 import autochannel
@@ -10,7 +10,7 @@ INSTALL_REQUIREMENTS = [
     'aiomeasures',
     'coloredlogs',
     'dblpy',
-    'discord.py==2.3.2',
+    'discord.py',
     'flask_sqlalchemy',
     'profanityfilter',
     'prometheus_client',
