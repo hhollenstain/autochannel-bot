@@ -5,10 +5,13 @@ name = "pypi"
 
 [dev-packages]
 "pep8" = "*"
+pytest = "*"
+pytest-asyncio = "*"
 ruff = "*"
 setuptools = "*"
 
 [packages]
+"discord.py" = "*"
 autochannel = {extras = ["test"], path = ".", editable = true}
 
 [requires]

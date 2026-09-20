@@ -22,15 +22,16 @@ INSTALL_REQUIREMENTS = [
 ]
 
 TEST_REQUIREMENTS = {
-    'test':[
+    'test': [
         'pytest',
+        'pytest-asyncio',
         'pylint',
         'sure',
-        ],
+    ],
     'dev': [
         'ruff',
     ],
-    }
+}
 
 setup(
     name='autochannel',
@@ -42,8 +43,8 @@ setup(
     install_requires=INSTALL_REQUIREMENTS,
     extras_require=TEST_REQUIREMENTS,
     entry_points={
-        'console_scripts':  [
+        'console_scripts': [
             'autochannel = autochannel.autochannel_bot:main',
         ],
     },
-    )
+)
