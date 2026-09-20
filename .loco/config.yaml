@@ -1,0 +1,8 @@
+name: autochannel-bot
+test_command: make test
+max_repair_attempts: 1
+publish:
+  enabled: false
+  remote: origin
+  create_pr: false
+goals_file: goals.md
