@@ -50,8 +50,8 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
 6. **Test after changes**: Always run the test suite after functional changes
 
 ## Getting Started
-1. Install dependencies: `pip install -e ".[dev]"`
+1. Install dependencies: `uv sync --dev`
 2. Set up environment: Copy `example.env` to `.env` and configure
-3. Run bot: `autochannel --debug` or `python -m autochannel.autochannel_bot`
-4. Run tests: `make test` or `pytest -v`
-5. Check lint: `ruff format . && ruff check .`
+3. Run bot: `autochannel --debug` or `uv run python -m autochannel.autochannel_bot`
+4. Run tests: `make test` or `pytest -v` (ensures `uv sync --dev` is run first)
+5. Check lint: `ruff format . && ruff check .` (use `uv run` if not in venv)
