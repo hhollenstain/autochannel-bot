@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autochannel"
+version = "9.3.0"
+description = "AutoChannel Discord bot for automatic voice channel management"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.11.0",
+    "aiomeasures>=0.5.0",
+    "coloredlogs>=15.0.0",
+    "dblpy>=0.4.0",
+    "discord-py>=2.3.2",
+    "flask-sqlalchemy>=3.1.0",
+    "profanityfilter>=2.0.0",
+    "prometheus-client>=0.21.0",
+    "psycopg2-binary>=2.9.0",
+    "pyyaml>=6.0",
+    "requests>=2.32.0",
+    "sqlalchemy>=2.0.25",
+]
+authors = [
+    { name = "Henry Hollenstain", email = "henry@hollenstain.io" }
+]
+maintainers = [
+    { name = "Henry Hollenstain", email = "henry@hollenstain.io" }
+]
+keywords = ["discord", "bot", "voice-channels", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/hhollenstain/autochannel-bot"
+Documentation = "https://github.com/hhollenstain/autochannel-bot#readme"
+Repository = "https://github.com/hhollenstain/autochannel-bot"
+Issues = "https://github.com/hhollenstain/autochannel-bot/issues"
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.14.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.9.0",
+    "types-psycopg2>=2.9.0",
+    "types-PyYAML>=6.0",
+    "setuptools>=75.0.0",
+]
+types = [
+    "mypy>=1.14.0",
+    "types-psycopg2>=2.9.0",
+    "types-PyYAML>=6.0",
+]
+test = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+disable_error_code = ["override"]
+
+[project.scripts]
+autochannel = "autochannel.autochannel_bot:main"
