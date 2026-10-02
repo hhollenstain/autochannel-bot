@@ -4,31 +4,31 @@
 ## How to develop?
 
 The makefile is your friend, but have a few perquisites you will need to cover first.
-You will need pipenv, make, gcc (linux) for compiling fun. This readme will not go
-over all this, but should be straight forward. Some info about [pipenv](https://realpython.com/pipenv-guide/#pipenv-introduction)
+You will need uv, make, gcc (linux) for compiling fun. This readme will not go
+over all this, but should be straight forward. Check out [uv](https://github.com/astral-sh/uv) for more info.
 
 
 
 ### Running commands
 
 #### make init
-does the base install of the source package through pipenv that should already be installed,
-if a local pipenv isn't yet setup this is when it will happen (python 3.6.8)
+does the base install of the source package through uv that should already be installed,
+if a local uv venv isn't yet setup this is when it will happen (python 3.12+)
 
 #### make check
-Designed to do linting and pipenv checking for dependencies and such
+Designed to do linting and uv dependency checking
 
 #### make test
-This is designed to install fakahbot package and testing packages if I ever decided to write tests for it :shrug:
+This is designed to install the autochannel package and testing packages
 
 #### make dist
-Makes is dist package for system built on.
+Makes the dist package for system builds.
 
 #### make live
-This run only on image builds in my CI/CD pipeline just install the package in the image and pushes into image repo.
+This runs only on image builds in my CI/CD pipeline to install the package in the image.
 
 
-### After installing fakah-bot what do?
+### After installing autochannel-bot what do?
 
 You will need to copy example.env to .env and update the value inside
 
@@ -45,7 +45,7 @@ You will need to copy example.env to .env and update the value inside
 ### Now Running the bot locally
 run:
 ```bash
-pipenv run autochannel
+uv run autochannel
 ```
 
 ```bash
