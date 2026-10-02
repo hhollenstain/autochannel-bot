@@ -23,20 +23,21 @@ class TestGuild:
         yield session
         session.close()
 
-    def test_guild_creation(self, session):
-        """Test basic guild creation."""
-        guild = Guild()
+    @pytest.fixture
+    def guild(self, session):
+        """Create a guild for testing."""
+        guild = Guild(id=123456789)
         session.add(guild)
         session.commit()
         session.refresh(guild)
+        return guild
+
+    def test_guild_creation(self, guild):
+        """Test basic guild creation."""
         assert guild.id is not None
 
-    def test_guild_categories_relationship(self, session):
+    def test_guild_categories_relationship(self, session, guild):
         """Test Guild to Category relationship."""
-        guild = Guild()
-        session.add(guild)
-        session.flush()
-
         category = Category(
             guild_id=guild.id,
             prefix="AC!",
