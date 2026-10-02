@@ -28,7 +28,9 @@ class Server(commands.Cog):
         LOG.info(f"Logged in as {self.autochannel.user.name}")
         await self.autochannel.change_presence(
             status=discord.Status.online,
-            activity=discord.Game(name="Waking up, making coffee..."),
+            activity=discord.Activity(
+                name="Waking up, making coffee...", type=discord.ActivityType.playing
+            ),
         )
         asyncio.create_task(utils.change_status(self.autochannel))
         asyncio.create_task(utils.list_servers(self.autochannel))

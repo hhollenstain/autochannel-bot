@@ -11,3 +11,4 @@ __author__: str = "Henry Hollenstain"
 __email__: str = "henry@hollenstain.io"
 
 log: logging.Logger = logging.getLogger(__name__)
+"""Logger for the autochannel package."""

@@ -761,7 +761,7 @@ class AutoChannels(commands.Cog):
         return cat_list
 
 
-async def setup(autochannel: discord.Client) -> None:
+async def setup(autochannel: commands.Bot) -> None:
     """Setup the AutoChannels extension.
 
     Args:

@@ -16,7 +16,7 @@ from autochannel import VERSION
 from autochannel.lib.metrics import bot_guild_count, bot_user_count
 
 LOG = logging.getLogger(__name__)
-BLOCKED_USERS = os.getenv("BLOCKED_USERS") or "123456"
+BLOCKED_USERS: str = os.getenv("BLOCKED_USERS") or "123456"
 
 
 def timediff(channelTime: datetime, currentTime: datetime) -> int:
@@ -71,7 +71,7 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def take(n: int, iterable) -> list:
+def take(n: int, iterable: list[int]) -> list[int]:
     """Return first n items of the iterable as a list.
 
     Args:
@@ -128,7 +128,7 @@ def missing_numbers(L: list[int]) -> list[int]:
     return sorted(set(range(start, end + 1)).difference(L))
 
 
-def block_check():
+def block_check() -> commands.CheckerFunction[commands.Context[commands.Bot]]:
     """Create a check that blocks certain users.
 
     Returns:
@@ -193,4 +193,3 @@ async def list_users(client: commands.Bot) -> None:
         numb_of_clients: int = len(client.users)
         bot_user_count(numb_of_clients)
         LOG.debug(f"Number Of clients: {numb_of_clients}")
-        await asyncio.sleep(600)
