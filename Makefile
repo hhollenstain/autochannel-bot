@@ -1,22 +1,20 @@
-.PHONY: init check dist publish
+.PHONY: init check dist publish test
+
+PIPENV = PIPENV_IGNORE_VIRTUALENVS=1 pipenv
 
 init:
-	# pipenv install git+https://github.com/Rapptz/discord.py@master#egg=discord.py
-	pipenv install -e "."
-	pipenv run python setup.py develop
+	$(PIPENV) install --dev
 
 check: test
-	#pipenv check
-	pipenv run pylint setup.py
-	#pipenv run pylint autochannel/*.py
+	$(PIPENV) run ruff check setup.py autochannel
 
 test:
-	pipenv install -e ".[test]"
-	pipenv run python setup.py develop
+	$(PIPENV) install --dev
+	PYTHONPATH=. $(PIPENV) run python -c "from autochannel import VERSION; print(VERSION)"
+	PYTHONPATH=. $(PIPENV) run python -c "import autochannel.autochannel_bot"
 
-dist: init check req
-	pipenv run python setup.py sdist bdist_wheel install
+dist: init check
+	$(PIPENV) run python setup.py sdist bdist_wheel
 
 live:
-	# pip install -U git+https://github.com/Rapptz/discord.py@master#egg=discord.py
 	pip install -e "."

@@ -1,153 +1,196 @@
-import asyncio
+"""Utility functions for AutoChannel bot."""
+
+from __future__ import annotations
+
 import argparse
-import discord
+import asyncio
 import logging
 import os
-from discord import Game
-from discord.ext import commands
+from datetime import datetime
 from itertools import cycle, islice
-""" AC Imports """
+
+import discord
+from discord.ext import commands
+
 from autochannel import VERSION
-from autochannel.lib.metrics import bot_user_count, bot_guild_count
+from autochannel.lib.metrics import bot_guild_count, bot_user_count
 
 LOG = logging.getLogger(__name__)
-BLOCKED_USERS = os.getenv('BLOCKED_USERS') or '123456'
+BLOCKED_USERS = os.getenv("BLOCKED_USERS") or "123456"
 
-def timediff(channelTime, currentTime):
-    """[summary]
-    
-    Arguments:
-        channelTime {[type]} -- [description]
-        currentTime {[type]} -- [description]
-    
+
+def timediff(channelTime: datetime, currentTime: datetime) -> int:
+    """Calculate time difference in seconds.
+
+    Args:
+        channelTime: The starting datetime.
+        currentTime: The current datetime.
+
     Returns:
-        [type] -- [description]
+        Difference in seconds.
     """
     tdiff = int((currentTime - channelTime).total_seconds())
     return tdiff
 
-def to_int(value):
-    """[summary]
-    
-    Arguments:
-        value {[type]} -- [description]
-    
+
+def to_int(value: str) -> int:
+    """Convert string to int, removing commas.
+
+    Args:
+        value: String value possibly containing commas.
+
     Returns:
-        [type] -- [description]
+        Int value without commas.
     """
     if isinstance(value, str):
         return int(value.replace(",", ""))
-    else:
-        return value
+    return int(value)
 
 
-def parse_arguments():
-    """parsing arguments.
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments.
 
+    Returns:
+        Parsed arguments namespace.
     """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--debug', help='enable debug', action='store_true')
-    parser.add_argument('--version', action='version',
-                        version=format(VERSION),
-                        help='show the version number and exit')
-
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="AutoChannel Discord Bot",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="enable debug",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=VERSION,
+        help="show the version number and exit",
+    )
     return parser.parse_args()
 
-def take(n, iterable):
-    "Return first n items of the iterable as a list"
+
+def take(n: int, iterable) -> list:
+    """Return first n items of the iterable as a list.
+
+    Args:
+        n: Number of items to take.
+        iterable: Iterable to take items from.
+
+    Returns:
+        List of first n items.
+    """
     return list(islice(iterable, n))
 
-def friendly_time(seconds):
-    """[summary]
-    
-    Arguments:
-        seconds {[type]} -- [description]
-    
+
+def friendly_time(seconds: int) -> str:
+    """Format seconds as a human-readable time string.
+
+    Args:
+        seconds: Number of seconds.
+
     Returns:
-        [type] -- [description]
+        Human-readable time string.
     """
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
 
-    periods = [('hours', hours), ('minutes', minutes), ('seconds', seconds)]
-    time_string = ', '.join('{} {}'.format(value, name)
-                            for name, value in periods
-                            if value)
+    periods = [("hours", hours), ("minutes", minutes), ("seconds", seconds)]
+    time_string = ", ".join(f"{value} {name}" for name, value in periods if value)
 
-    return '{}'.format(time_string)
+    return time_string
 
-def message_check(message, mentions):
-    """
+
+def message_check(message: discord.Message, mentions: set[int]) -> bool:
+    """Check if message author is in mentions.
+
+    Args:
+        message: Discord message.
+        mentions: Set of user IDs.
+
+    Returns:
+        True if author is in mentions.
     """
     return message.author.id in mentions
 
-def missing_numbers(L):
-    """
+
+def missing_numbers(L: list[int]) -> list[int]:
+    """Find missing numbers in a sorted sequence.
+
+    Args:
+        L: List of integers.
+
+    Returns:
+        List of missing numbers.
     """
     start, end = 1, len(L) + 1
     return sorted(set(range(start, end + 1)).difference(L))
 
-def block_check():
-    """[summary]
-    
-    Returns:
-        [type] -- [description]
-    """
-    def predicate(ctx):
-        if str(ctx.message.author.id) in BLOCKED_USERS:
-            return False
-        else:
-            return True
-    return commands.check(predicate)
 
-async def change_status(client):
-    """[summary]
-    
-    Arguments:
-        client {[type]} -- [description]
+def block_check():
+    """Create a check that blocks certain users.
+
+    Returns:
+        A discord.py check function.
+    """
+
+    return commands.check(lambda ctx: str(ctx.author.id) not in BLOCKED_USERS)
+
+
+async def change_status(client: commands.Bot) -> None:
+    """Change bot status periodically based on environment settings.
+
+    Args:
+        client: The bot instance.
     """
     await client.wait_until_ready()
 
-    if os.environ.get('GAMES') is not None:
-        GAMES = os.environ.get('GAMES').split(",")
-        sts = cycle(GAMES)
+    games = os.environ.get("GAMES")
+    if games:
+        activities = cycle(games.split(","))
 
         while not client.is_closed():
-            current_status = next(sts)
-            await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
+            current_activity = next(activities)
+            await client.change_presence(
+                status=discord.Status.online,
+                activity=discord.Activity(name=current_activity, type=discord.ActivityType.playing),
+            )
             await asyncio.sleep(300)
     else:
         while not client.is_closed():
             guild_count = len(client.guilds)
-            current_status = 'Serving {} Discord servers!'.format(guild_count)
-            await client.change_presence(status=discord.Status.online, activity=Game(name=current_status))
+            current_activity: str = f"Serving {guild_count} Discord servers!"
+            await client.change_presence(
+                status=discord.Status.online,
+                activity=discord.Activity(name=current_activity, type=discord.ActivityType.playing),
+            )
             await asyncio.sleep(300)
 
 
-async def list_servers(client):
-    """[summary]
-    
-    Arguments:
-        client {[type]} -- [description]
+async def list_servers(client: commands.Bot) -> None:
+    """Log and track server count metrics.
+
+    Args:
+        client: The bot instance.
     """
     await client.wait_until_ready()
     while not client.is_closed():
-        server_list = []
-        for server in client.guilds:
-            server_list.append(server.name)
+        server_list = [server.name for server in client.guilds]
         bot_guild_count(len(server_list))
-        LOG.debug(f'Current servers: {server_list}')
+        LOG.debug(f"Current servers: {server_list}")
         await asyncio.sleep(600)
 
-async def list_users(client):
-    """[summary]
-    
-    Arguments:
-        client {[type]} -- [description]
+
+async def list_users(client: commands.Bot) -> None:
+    """Track user count metrics.
+
+    Args:
+        client: The bot instance.
     """
     await client.wait_until_ready()
     while not client.is_closed():
-        numb_of_clients = len(client.users)
+        numb_of_clients: int = len(client.users)
         bot_user_count(numb_of_clients)
-        LOG.debug(f'Number Of clients: {numb_of_clients}')
+        LOG.debug(f"Number Of clients: {numb_of_clients}")
         await asyncio.sleep(600)

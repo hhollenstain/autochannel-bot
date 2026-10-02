@@ -1,4 +1,4 @@
-FROM python:3.10-alpine
+FROM python:3.12-alpine
 
 RUN apk add gcc g++ musl-dev libffi-dev libxml2-dev libxslt-dev git make postgresql-dev
 
