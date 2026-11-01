@@ -35,7 +35,7 @@ async def setup(client: AutoChannel) -> None:
                 description="Says when a member joined",
             )
 
-        @app_commands.context_menu(name="Show Join Date")
+        @app_commands.context_menu(name="Show Join Date")  # type: ignore[arg-type]
         async def show_join_date_callback(
             self,
             interaction: Interaction[commands.Bot],
@@ -48,8 +48,14 @@ async def setup(client: AutoChannel) -> None:
                 member: The member to show the join date for.
             """
             LOG.debug(f"Show join date requested for {member}")
+            joined_at = member.joined_at
+            if joined_at is None:
+                await interaction.response.send_message(
+                    f"Could not determine when {member} joined",
+                )
+                return
             await interaction.response.send_message(
-                f"{member} joined at {discord.utils.format_dt(member.joined_at)}",
+                f"{member} joined at {discord.utils.format_dt(joined_at)}",
             )
 
         @app_commands.describe(
@@ -69,8 +75,14 @@ async def setup(client: AutoChannel) -> None:
             """
             user = member or interaction.user
             LOG.debug(f"Show join date requested for {user}")
+            joined_at = user.joined_at if isinstance(user, Member) else None
+            if joined_at is None:
+                await interaction.response.send_message(
+                    f"Could not determine when {user} joined",
+                )
+                return
             await interaction.response.send_message(
-                f"{user} joined {discord.utils.format_dt(user.joined_at)}",
+                f"{user} joined {discord.utils.format_dt(joined_at)}",
             )
 
     join_cog = JoinCog(client)

@@ -2,19 +2,30 @@ from __future__ import annotations
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import BigInteger, Boolean, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-db = SQLAlchemy()
+
+class Base(DeclarativeBase):
+    """Declarative base shared by the Flask-SQLAlchemy models."""
+
+
+db = SQLAlchemy(model_class=Base)
+
+
+def _snowflake_pk() -> BigInteger:
+    """Primary key that autoincrements on SQLite and stays BIGINT on Postgres."""
+    return BigInteger().with_variant(Integer(), "sqlite")
+
 
 __all__ = ["Channel", "Category", "Guild", "db"]
 
 
-class Channel(db.Model):
+class Channel(Base):
     """Database model for voice channels."""
 
     __tablename__ = "channel"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(_snowflake_pk(), primary_key=True)
     cat_id: Mapped[int] = mapped_column(BigInteger, db.ForeignKey("category.id"), nullable=False)
     chan_type: Mapped[str] = mapped_column(String(10), default="voice", nullable=False)
     num_suffix: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -28,12 +39,12 @@ class Channel(db.Model):
         )
 
 
-class Category(db.Model):
+class Category(Base):
     """Database model for voice channel categories."""
 
     __tablename__ = "category"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(_snowflake_pk(), primary_key=True)
     guild_id: Mapped[int] = mapped_column(BigInteger, db.ForeignKey("guild.id"), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     prefix: Mapped[str] = mapped_column(String(10), default="AC!", nullable=False)
@@ -61,24 +72,24 @@ class Category(db.Model):
         return [channel.num_suffix for channel in self.channels]
 
 
-class Guild(db.Model):
+class Guild(Base):
     """Database model for Discord guilds."""
 
     __tablename__ = "guild"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(_snowflake_pk(), primary_key=True)
     categories: Mapped[list[Category]] = relationship("Category", back_populates="guild")
 
     def __repr__(self) -> str:
         return f"Guild({self.id})"
 
-    def get_categories(self) -> dict[int, dict[str]]:
+    def get_categories(self) -> dict[int, dict[str, str | bool | int]]:
         """Get category configuration for this guild.
 
         Returns:
             Dictionary of category configurations.
         """
-        cats: dict[int, dict[str]] = {}
+        cats: dict[int, dict[str, str | bool | int]] = {}
         for category in self.categories:
             cats[category.id] = {
                 "prefix": category.prefix,

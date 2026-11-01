@@ -1,12 +1,12 @@
+from __future__ import annotations
+
 import logging
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import Any, cast
 
 from discord.ext import commands
 from prometheus_client import Counter, Gauge, Summary
-
-if TYPE_CHECKING:
-    from discord import Guild
 
 LOG = logging.getLogger("discord")
 COMMAND_SUMMARY_VC = Summary("command_vc", "Time spent processing request")
@@ -45,7 +45,7 @@ def queue_stats_gauge(num_of_events: int) -> None:
     QUEUE_COUNT.set(num_of_events)
 
 
-def command_metrics_counter(f):
+def command_metrics_counter[F: Callable[..., Awaitable[Any]]](f: F) -> F:
     """Decorator to add command metrics to a cog method.
 
     Args:
@@ -56,16 +56,16 @@ def command_metrics_counter(f):
     """
 
     @wraps(f)
-    async def wrapper(self: "commands.Cog", *args, **kwargs) -> None:
-        guild: Guild = args[0].guild
+    async def wrapper(self: commands.Cog, *args: Any, **kwargs: Any) -> Any:
+        guild = args[0].guild
         COMMAND_COUNT.labels(command=f"autochan.command.{f.__name__}", guild=guild).inc()
         LOG.debug(f'STATS INCR: autochannel_bot.command.{f.__name__}.count tags=[f"guild:{guild}"]')
         return await f(self, *args, **kwargs)
 
-    return wrapper
+    return cast(F, wrapper)
 
 
-def task_metrics_counter(f):
+def task_metrics_counter[F: Callable[..., Awaitable[Any]]](f: F) -> F:
     """Decorator to add task metrics to a cog method.
 
     Args:
@@ -76,12 +76,12 @@ def task_metrics_counter(f):
     """
 
     @wraps(f)
-    async def wrapper(self: "commands.Cog", *args, **kwargs) -> None:
-        guild: Guild = args[0].guild
+    async def wrapper(self: commands.Cog, *args: Any, **kwargs: Any) -> Any:
+        guild = args[0].guild
         TASK_COUNT.labels(task=f"autochan.task.{f.__name__}", guild=guild).inc()
         LOG.debug(
             f'STATS INCR: autochannel.task.command.{f.__name__}.count tags=[f"guild:{guild}"]'
         )
         return await f(self, *args, **kwargs)
 
-    return wrapper
+    return cast(F, wrapper)

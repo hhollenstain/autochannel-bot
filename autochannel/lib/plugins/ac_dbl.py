@@ -11,7 +11,7 @@ from autochannel.autochannel import AutoChannel
 LOG = logging.getLogger(__name__)
 
 
-class DiscordBotsOrgAPI(commands.Cog[AutoChannel]):
+class DiscordBotsOrgAPI(commands.Cog):
     """Handles interactions with the discordbots.org API"""
 
     def __init__(self, autochannel: AutoChannel) -> None:

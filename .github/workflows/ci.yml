@@ -30,6 +30,7 @@ jobs:
         run: |
           uv venv
           uv pip install -e ".[dev]"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       
       - name: Run ruff format check
         run: |
@@ -66,6 +67,7 @@ jobs:
         run: |
           uv venv
           uv pip install -e ".[test]"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       
       - name: Run pytest
         run: |

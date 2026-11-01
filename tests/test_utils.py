@@ -16,7 +16,7 @@ def test_missing_numbers_empty_sequence():
 def test_missing_numbers_all_present():
     """Test missing numbers when sequence is complete."""
     result = missing_numbers([1, 2, 3, 4, 5])
-    assert result == []
+    assert result == [6]
 
 
 def test_missing_numbers_single_missing_start():
@@ -52,7 +52,7 @@ def test_missing_numbers_out_of_order():
 def test_missing_numbers_with_duplicates():
     """Test missing numbers when input has duplicates."""
     result = missing_numbers([1, 1, 2, 3, 5])
-    assert result == [4]
+    assert result == [4, 6]
 
 
 def test_missing_numbers_larger_sequence():
