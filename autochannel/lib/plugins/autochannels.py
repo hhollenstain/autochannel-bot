@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from typing import Any
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 from profanityfilter import ProfanityFilter
 
+from autochannel.autochannel import AutoChannel
 from autochannel.data.models import Category, Channel
 from autochannel.lib.metrics import (
     command_metrics_counter,
@@ -35,13 +37,13 @@ class ACUnknownCategory(commands.CommandError):
     pass
 
 
-class ACDisabledCustomCategory(commands.CommandInvokeError):
+class ACDisabledCustomCategory(commands.CommandError):
     """Custom exception for disabled custom voice category."""
 
     pass
 
 
-class VCProfaneWordused(commands.CommandInvokeError):
+class VCProfaneWordused(commands.CommandError):
     """Custom exception for profane word usage."""
 
     pass
@@ -58,7 +60,7 @@ class AutoChannels(commands.Cog):
         autochannel: The AutoChannel bot instance.
     """
 
-    def __init__(self, autochannel: commands.Bot) -> None:
+    def __init__(self, autochannel: AutoChannel) -> None:
         """Initialize the AutoChannels cog.
 
         Args:
@@ -66,9 +68,7 @@ class AutoChannels(commands.Cog):
         """
         self.autochannel = autochannel
         self.stats = autochannel.stats
-        self.queue: asyncio.Queue[
-            dict[str, str | bool | Category | discord.VoiceChannel | discord.TextChannel]
-        ] = asyncio.Queue()
+        self.queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self.next = asyncio.Event()
 
     async def cog_load(self) -> None:
@@ -91,9 +91,7 @@ class AutoChannels(commands.Cog):
             LOG.info(f"QUEUE SIZE: {self.queue.qsize()}")
             await asyncio.sleep(0.25)
 
-            task: dict[
-                str, str | bool | Category | discord.VoiceChannel | discord.TextChannel | None
-            ] = await self.queue.get()
+            task = await self.queue.get()
 
             if not task.get("type"):
                 self.autochannel.loop.call_soon_threadsafe(self.next.set)
@@ -102,22 +100,22 @@ class AutoChannels(commands.Cog):
             LOG.info(f"Running queue Task: {task}")
             try:
                 if task["type"] == "ac_create_channel":
-                    await self.ac_create_channel(  # type: ignore
-                        task["cat"],  # type: ignore
+                    await self.ac_create_channel(
+                        task["cat"],
                         guild=task["guild"],
                     )
 
                 if task["type"] == "ac_delete_channel":
-                    await self.ac_delete_channel(  # type: ignore
-                        task["cat"],  # type: ignore
+                    await self.ac_delete_channel(
+                        task["cat"],
                         guild=task["guild"],
-                        force=task["force"],  # type: ignore
+                        force=task["force"],
                     )
 
                 if task["type"] == "ac_prefix_sync":
-                    await self.ac_prefix_sync(  # type: ignore
-                        task["channel"],  # type: ignore
-                        task["db_cat"],  # type: ignore
+                    await self.ac_prefix_sync(
+                        task["channel"],
+                        task["db_cat"],
                         guild=task["guild"],
                     )
 
@@ -128,7 +126,9 @@ class AutoChannels(commands.Cog):
             await self.next.wait()
 
     @task_metrics_counter
-    async def ac_delete_channel(self, cat: discord.CategoryChannel, force: bool, **kwargs) -> None:
+    async def ac_delete_channel(
+        self, cat: discord.CategoryChannel, force: bool, **kwargs: Any
+    ) -> None:
         """_summary_
 
         Args:
@@ -136,12 +136,16 @@ class AutoChannels(commands.Cog):
             force (bool): _description_
         """
         category = self.autochannel.session.query(Category).get(cat.id)
+        if category is None:
+            return
         db_channel_list_id = category.get_channels()
         if force:
             auto_channels = [
                 channel for channel in cat.voice_channels if channel.id in db_channel_list_id
             ]
             highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
+            if highest_empty_channel is None:
+                return
             LOG.debug(f"force deleting auto-channel: {highest_empty_channel.name}")
             await highest_empty_channel.delete(reason="Auto-chan keeping a tidy house")
         else:
@@ -154,6 +158,8 @@ class AutoChannels(commands.Cog):
             empty_channel_count = len(auto_channels)
             if empty_channel_count > category.empty_count:
                 highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
+                if highest_empty_channel is None:
+                    return
                 LOG.debug(f"deleting auto-channel: {highest_empty_channel.name}")
                 await highest_empty_channel.delete(reason="Auto-chan keeping a tidy house")
             else:
@@ -161,7 +167,7 @@ class AutoChannels(commands.Cog):
 
     @task_metrics_counter
     async def ac_create_channel(
-        self, cat: discord.CategoryChannel, **kwargs
+        self, cat: discord.CategoryChannel, **kwargs: Any
     ) -> discord.VoiceChannel | None:
         """Create an auto voice channel if fewer than max empty channels exist.
 
@@ -172,6 +178,8 @@ class AutoChannels(commands.Cog):
             The created voice channel or None if not needed.
         """
         db_cat = self.autochannel.session.query(Category).get(cat.id)
+        if db_cat is None:
+            return None
         db_channel_list_id = db_cat.get_channels()
         auto_channels = [
             channel for channel in cat.voice_channels if channel.id in db_channel_list_id
@@ -205,7 +213,9 @@ class AutoChannels(commands.Cog):
         return created_channel
 
     @task_metrics_counter
-    async def vc_delete_channel(self, voicechannel: discord.VoiceChannel, **kwargs) -> None:
+    async def vc_delete_channel(
+        self, voicechannel: discord.VoiceChannel | discord.StageChannel, **kwargs: Any
+    ) -> None:
         """Delete a voice channel.
 
         Args:
@@ -215,7 +225,7 @@ class AutoChannels(commands.Cog):
         await voicechannel.delete(reason=reason)
 
     async def manage_auto_voice_channels(
-        self, autochannel: commands.Bot, guild: discord.Guild | None = None
+        self, autochannel: AutoChannel, guild: discord.Guild | None = None
     ) -> None:
         """Manage auto voice channels in guilds.
 
@@ -249,13 +259,15 @@ class AutoChannels(commands.Cog):
                 .all()
             )
             db_cats = [i[0] for i in db_cats]
-            ac_guilds = autochannel.guilds
+            ac_guilds = list(autochannel.guilds)
         for server in ac_guilds:
             if db_cats_disabled:
                 """ Runs if we have are calling the acupdate"""
                 categories = [cat for cat in server.categories if cat.id in db_cats_disabled]
                 for cat in categories:
                     db_cat = self.autochannel.session.query(Category).get(cat.id)
+                    if db_cat is None:
+                        continue
                     db_channel_list_id = db_cat.get_channels()
                     auto_channels = [
                         channel
@@ -277,6 +289,8 @@ class AutoChannels(commands.Cog):
             for cat in categories:
                 self.autochannel.session.expire_all()
                 db_cat = self.autochannel.session.query(Category).get(cat.id)
+                if db_cat is None:
+                    continue
                 auto_channels = [
                     channel
                     for channel in cat.voice_channels
@@ -370,7 +384,7 @@ class AutoChannels(commands.Cog):
 
     @task_metrics_counter
     async def ac_prefix_sync(
-        self, channel: discord.VoiceChannel, db_cat: Category, **kwargs
+        self, channel: discord.VoiceChannel, db_cat: Category, **kwargs: Any
     ) -> None:
         """Update a channel's name to match the category prefix.
 
@@ -379,10 +393,14 @@ class AutoChannels(commands.Cog):
             db_cat: The category object from the database.
         """
         channel_db = self.autochannel.session.query(Channel).get(channel.id)
+        if channel_db is None:
+            return
         LOG.debug(f"Channel suffix being updated: {channel_db.num_suffix}")
         await channel.edit(name=f"{db_cat.prefix} - {channel_db.num_suffix}")
 
-    def ac_db_highest_empty_channel(self, empty_auto_channels: list) -> discord.VoiceChannel | None:
+    def ac_db_highest_empty_channel(
+        self, empty_auto_channels: list[discord.VoiceChannel]
+    ) -> discord.VoiceChannel | None:
         """_summary_
 
         Args:
@@ -395,10 +413,15 @@ class AutoChannels(commands.Cog):
         highest_empty_channel_num = None
         for ec in empty_auto_channels:
             ec_db = self.autochannel.session.query(Channel).get(ec.id)
+            if ec_db is None:
+                continue
             if not highest_empty_channel:
                 highest_empty_channel_num = self.get_ac_db_channel(ec_db)
                 highest_empty_channel = ec
-            if self.get_ac_db_channel(ec_db) > highest_empty_channel_num:
+            if (
+                highest_empty_channel_num is not None
+                and self.get_ac_db_channel(ec_db) > highest_empty_channel_num
+            ):
                 highest_empty_channel = ec
         return highest_empty_channel
 
@@ -450,15 +473,20 @@ class AutoChannels(commands.Cog):
             VCProfaneWordused: _description_
             ACDisabledCustomCategory: _description_
         """
+        guild = interaction.guild
+        if guild is None:
+            raise ACUnknownCategory("Unknown Discord category")
+
         if not self.validateCategory(interaction, category):
             raise ACUnknownCategory("Unknown Discord category")
 
-        category_name = [
-            cat for cat in interaction.guild.categories if cat.name.lower() in category.lower()
-        ][0]
+        category_name = [cat for cat in guild.categories if cat.name.lower() in category.lower()][0]
         category_obj = self.autochannel.session.query(Category).get(category_name.id)
+        if category_obj is None:
+            raise ACUnknownCategory("Unknown Discord category")
 
         """Checks if there is channel name and if there is profanity used"""
+        vc_suffix: str | int
         if channel_name:
             vc_suffix = channel_name
             if pf.is_profane(channel_name):
@@ -472,7 +500,7 @@ class AutoChannels(commands.Cog):
                 f"ADMIN** must enable: http://auto-chan.io"
             )
 
-        created_vc = await interaction.guild.create_voice_channel(
+        created_vc = await guild.create_voice_channel(
             f"{category_obj.custom_prefix} {vc_suffix}",
             overwrites={},
             category=category_name,
@@ -481,7 +509,7 @@ class AutoChannels(commands.Cog):
         invite_link = await self.createVCInvite(interaction, created_vc)
 
         await interaction.response.send_message(invite_link)
-        if interaction.channel is not None:
+        if isinstance(interaction.channel, discord.abc.Messageable):
             await interaction.channel.send(
                 f"AutoChannel made `{interaction.user}` a channel `{created_vc.name}`"
             )
@@ -508,16 +536,23 @@ class AutoChannels(commands.Cog):
         """
 
         """good chance this might cause lots of db queries if abused"""
+        guild = interaction.guild
+        if guild is None:
+            return []
+
         category_objs = (
             self.autochannel.session.query(Category)
-            .filter_by(custom_enabled=True, guild_id=interaction.guild.id)
+            .filter_by(custom_enabled=True, guild_id=guild.id)
             .all()
         )
 
         categories = []
         for category in category_objs:
             try:
-                categories.append(interaction.guild.get_channel(category.id).name)
+                discord_channel = guild.get_channel(category.id)
+                if discord_channel is None:
+                    continue
+                categories.append(discord_channel.name)
             except Exception as e:
                 LOG.error(e)
 
@@ -530,7 +565,7 @@ class AutoChannels(commands.Cog):
     @vc.error
     async def on_vc_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    ) -> None:
         LOG.exception("vc command failed: %s", error)
         msg = str(error)
         if isinstance(error, ACUnknownCategory):
@@ -562,18 +597,30 @@ class AutoChannels(commands.Cog):
         ):
             category = self.autochannel.session.query(Category).get(v_state.channel.category.id)
             db_channel_list_id = category.get_channels() if category else []
-            return category and category.enabled and v_state.channel.id in db_channel_list_id
+            return bool(
+                category
+                and category.enabled
+                and v_state.channel
+                and v_state.channel.id in db_channel_list_id
+            )
         return False
 
-    async def after_ac_task(self, after: discord.VoiceState, member=None) -> None:
+    async def after_ac_task(
+        self, after: discord.VoiceState, member: discord.Member | None = None
+    ) -> None:
         """_summary_
 
         Args:
             after (discord.VoiceState): _description_
             member (_type_, optional): _description_. Defaults to None.
         """
-        cat = after.channel.category
+        channel = after.channel
+        if not isinstance(channel, discord.VoiceChannel) or channel.category is None:
+            return
+        cat = channel.category
         category = self.autochannel.session.query(Category).get(cat.id)
+        if category is None:
+            return
         db_channel_list_id = category.get_channels()
         auto_channels = [
             channel for channel in cat.voice_channels if channel.id in db_channel_list_id
@@ -586,17 +633,24 @@ class AutoChannels(commands.Cog):
             LOG.debug(f"queue object added: {q_object}")
             await self.queue.put(q_object)
 
-    async def before_ac_task(self, before: discord.VoiceState, member=None) -> None:
+    async def before_ac_task(
+        self, before: discord.VoiceState, member: discord.Member | None = None
+    ) -> None:
         """handles the updates to the old channel the user left
 
         Args:
             before (discord.VoiceState): before state channel
             member (_type_, optional): _description_. Defaults to None.
         """
-        cat = before.channel.category
+        channel = before.channel
+        if not isinstance(channel, discord.VoiceChannel) or channel.category is None:
+            return
+        cat = channel.category
         category = self.autochannel.session.query(Category).get(cat.id)
+        if category is None:
+            return
         db_channel_list_id = category.get_channels()
-        if len(before.channel.members) < 1:
+        if len(channel.members) < 1:
             auto_channels = [
                 channel
                 for channel in cat.voice_channels
@@ -616,7 +670,7 @@ class AutoChannels(commands.Cog):
 
     @task_metrics_counter
     @commands.Cog.listener()
-    async def on_guild_channel_delete(self, channel) -> None:
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
         """This tracks all channel deletes and if the channel is tracked by auto-chan,
         it will clean up the db entry. This is imporant due to admins deleting channels
         managed by auto-chan that otherwise would get missed.
@@ -648,7 +702,7 @@ class AutoChannels(commands.Cog):
             after (discord.VoiceState): after voice channel object
         """
         if (
-            before.channel is not None
+            isinstance(before.channel, discord.VoiceChannel | discord.StageChannel)
             and before.channel.category is not None
             and len(before.channel.members) < 1
         ):
@@ -663,7 +717,7 @@ class AutoChannels(commands.Cog):
         if self.valid_auto_channel(after):
             await self.after_ac_task(after, member=member)
 
-    def ac_db_channel_number(self, db_cat) -> int:
+    def ac_db_channel_number(self, db_cat: Category) -> int:
         """returns number from auto prefix and returns the lowest number
 
         Args:
@@ -676,7 +730,7 @@ class AutoChannels(commands.Cog):
 
         return missing_numbers(suffix_list)[0]
 
-    def get_ac_channel(self, auto_channel) -> int:
+    def get_ac_channel(self, auto_channel: discord.VoiceChannel) -> int:
         """returns the auto generated number suffix of a channel
 
         Args:
@@ -687,7 +741,7 @@ class AutoChannels(commands.Cog):
         """
         return int("".join(auto_channel.name.split(" ")[-1:]))
 
-    def get_ac_db_channel(self, auto_channel):
+    def get_ac_db_channel(self, auto_channel: Channel) -> int:
         """[summary]
 
         Arguments:
@@ -698,7 +752,9 @@ class AutoChannels(commands.Cog):
         """
         return auto_channel.num_suffix
 
-    def vc_channel_number(self, interaction: discord.Interaction, category, category_obj) -> int:
+    def vc_channel_number(
+        self, interaction: discord.Interaction, category: str, category_obj: Category
+    ) -> int:
         """_summary_
 
         Args:
@@ -709,9 +765,12 @@ class AutoChannels(commands.Cog):
         Returns:
             int: _description_
         """
+        guild = interaction.guild
+        if guild is None:
+            return 1
         ac_channels = [
             vc
-            for vc in interaction.guild.voice_channels
+            for vc in guild.voice_channels
             if str(vc.category).lower().startswith(f"{category}")
             and vc.name.startswith(category_obj.custom_prefix)
         ]
@@ -755,13 +814,16 @@ class AutoChannels(commands.Cog):
         Returns:
             List of lowercase category names.
         """
+        guild = interaction.guild
+        if guild is None:
+            return []
         cat_list: list[str] = []
-        for cat in interaction.guild.categories:
+        for cat in guild.categories:
             cat_list.append(cat.name.lower())
         return cat_list
 
 
-async def setup(autochannel: discord.Client) -> None:
+async def setup(autochannel: AutoChannel) -> None:
     """Setup the AutoChannels extension.
 
     Args:

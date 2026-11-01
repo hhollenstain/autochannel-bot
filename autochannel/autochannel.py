@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import discord
 from discord.ext import commands
@@ -32,9 +33,9 @@ class AutoChannel(commands.Bot):
 
     def __init__(
         self,
-        *args: tuple,
+        *args: Any,
         initial_extensions: list[str],
-        **kwargs: dict,
+        **kwargs: Any,
     ) -> None:
         """Initialize the AutoChannel bot instance.
 
@@ -47,12 +48,12 @@ class AutoChannel(commands.Bot):
         db = DB()
         self.session = db.session()
         self.app_id: str | None = kwargs.get("app_id")
-        self.auto_channel_prefix: str = kwargs.get("auto_channel_prefix")
+        self.auto_channel_prefix: str = kwargs.get("auto_channel_prefix") or ""
         self.auto_categories: list[str] = kwargs.get("auto_categories", [])
         self.env: str = kwargs.get("env") or "dev"
         self.dbl_token: str | None = kwargs.get("dbl_token")
         self.stats: None = None
-        self.voice_channel_prefix: str = kwargs.get("voice_channel_prefix")
+        self.voice_channel_prefix: str = kwargs.get("voice_channel_prefix") or ""
         self.initial_extensions: list[str] = initial_extensions
         self.testing_guild_id: str | None = kwargs.get("testing_guild_id")
 

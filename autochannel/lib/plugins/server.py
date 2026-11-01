@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 from autochannel import VERSION
+from autochannel.autochannel import AutoChannel
 from autochannel.lib import utils
 
 LOG = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ LOG = logging.getLogger(__name__)
 class Server(commands.Cog):
     """Server information and status cog."""
 
-    def __init__(self, autochannel: commands.Bot) -> None:
+    def __init__(self, autochannel: AutoChannel) -> None:
         """Initialize the Server cog.
 
         Args:
@@ -25,7 +26,9 @@ class Server(commands.Cog):
 
     async def cog_load(self) -> None:
         """Initialize the cog and start background tasks."""
-        LOG.info(f"Logged in as {self.autochannel.user.name}")
+        user = self.autochannel.user
+        if user is not None:
+            LOG.info(f"Logged in as {user.name}")
         await self.autochannel.change_presence(
             status=discord.Status.online,
             activity=discord.Game(name="Waking up, making coffee..."),
@@ -35,7 +38,7 @@ class Server(commands.Cog):
         asyncio.create_task(utils.list_users(self.autochannel))
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, error: Exception) -> None:
+    async def on_command_error(self, ctx: commands.Context[AutoChannel], error: Exception) -> None:
         """Handle command errors.
 
         Args:
@@ -65,7 +68,7 @@ class Server(commands.Cog):
         await ctx.send(msg)
 
     @commands.command(name="autochannel", aliases=["autochan", "info"])
-    async def autochannel(self, ctx: commands.Context) -> None:
+    async def autochannel_info(self, ctx: commands.Context[AutoChannel]) -> None:
         """Show information about the AutoChannel bot.
 
         Args:
@@ -102,7 +105,7 @@ class Server(commands.Cog):
         await ctx.send(embed=embed)
 
 
-async def setup(autochannel: commands.Bot) -> None:
+async def setup(autochannel: AutoChannel) -> None:
     """Load the Server cog into the bot.
 
     Args:

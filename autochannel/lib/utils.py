@@ -6,8 +6,10 @@ import argparse
 import asyncio
 import logging
 import os
+from collections.abc import Iterable
 from datetime import datetime
 from itertools import cycle, islice
+from typing import Any
 
 import discord
 from discord.ext import commands
@@ -71,7 +73,7 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def take(n: int, iterable) -> list:
+def take(n: int, iterable: Iterable[Any]) -> list[Any]:
     """Return first n items of the iterable as a list.
 
     Args:
@@ -93,13 +95,18 @@ def friendly_time(seconds: int) -> str:
     Returns:
         Human-readable time string.
     """
+    if seconds == 0:
+        return "0 seconds"
+
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
 
-    periods = [("hours", hours), ("minutes", minutes), ("seconds", seconds)]
-    time_string = ", ".join(f"{value} {name}" for name, value in periods if value)
+    def _part(value: int, singular: str) -> str:
+        name = singular if value == 1 else f"{singular}s"
+        return f"{value} {name}"
 
-    return time_string
+    periods = [(hours, "hour"), (minutes, "minute"), (seconds, "second")]
+    return ", ".join(_part(value, name) for value, name in periods if value)
 
 
 def message_check(message: discord.Message, mentions: set[int]) -> bool:
@@ -128,7 +135,7 @@ def missing_numbers(L: list[int]) -> list[int]:
     return sorted(set(range(start, end + 1)).difference(L))
 
 
-def block_check():
+def block_check() -> Any:
     """Create a check that blocks certain users.
 
     Returns:
@@ -160,7 +167,7 @@ async def change_status(client: commands.Bot) -> None:
     else:
         while not client.is_closed():
             guild_count = len(client.guilds)
-            current_activity: str = f"Serving {guild_count} Discord servers!"
+            current_activity = f"Serving {guild_count} Discord servers!"
             await client.change_presence(
                 status=discord.Status.online,
                 activity=discord.Activity(name=current_activity, type=discord.ActivityType.playing),

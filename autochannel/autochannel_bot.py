@@ -111,6 +111,9 @@ async def run_autochannel() -> None:
         testing_guild_id=TESTING_GUILD_ID,
     )
 
+    if TOKEN is None:
+        raise RuntimeError("TOKEN environment variable is required")
+
     start_http_server(8000)
     await autochannel.start(TOKEN)
 
