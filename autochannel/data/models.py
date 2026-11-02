@@ -6,7 +6,20 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
-    """Declarative base shared by the Flask-SQLAlchemy models."""
+    """Declarative base shared by the Flask-SQLAlchemy models.
+
+    Note:
+        All database operations should be performed within a transaction context
+        to ensure proper commit/rollback behavior. Use the DB.transaction()
+        context manager from autochannel.data.database for this purpose.
+
+        Example:
+            with db.transaction() as session:
+                # Perform your database operations here
+                category = Category(guild_id=123)
+                session.add(category)
+                # Commit happens automatically on success, rollback on error
+    """
 
 
 db = SQLAlchemy(model_class=Base)
@@ -70,6 +83,26 @@ class Category(Base):
             List of channel suffixes.
         """
         return [channel.num_suffix for channel in self.channels]
+
+    def save_with_transaction(self, session):
+        """Save the category with explicit transaction handling.
+
+        This method ensures that the category is properly added to
+        the database within a transaction, committing on success or
+        rolling back on failure.
+
+        Args:
+            session: The SQLAlchemy session to use for the transaction.
+
+        Raises:
+            Exception: If the save operation fails, it will be re-raised after rollback.
+        """
+        try:
+            session.add(self)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
 
 class Guild(Base):
