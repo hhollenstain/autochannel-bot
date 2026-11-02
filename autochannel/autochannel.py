@@ -45,8 +45,8 @@ class AutoChannel(commands.Bot):
             **kwargs: Keyword arguments for discord.ext.commands.Bot.
         """
         super().__init__(*args, **kwargs)
-        db = DB()
-        self.session = db.session()
+        self._db = DB()
+        self.session = self._db.session()
         self.app_id: str | None = kwargs.get("app_id")
         self.auto_channel_prefix: str = kwargs.get("auto_channel_prefix") or ""
         self.auto_categories: list[str] = kwargs.get("auto_categories", [])
@@ -73,3 +73,12 @@ class AutoChannel(commands.Bot):
             log.info(f"Commands successfully updated to GUILD: {g.id}")
         else:
             await self.tree.sync()
+
+    async def close(self) -> None:
+        """Close the database session when the bot is shutting down."""
+        if hasattr(self, "session") and self.session is not None:
+            self.session.close()
+        # Also close the database connection pool
+        if hasattr(self, "_db") and self._db is not None:
+            self._db.close_all_sessions()
+        await super().close()
