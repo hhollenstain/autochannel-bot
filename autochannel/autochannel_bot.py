@@ -10,7 +10,6 @@ import os
 
 import coloredlogs
 import discord
-from prometheus_client import start_http_server
 
 from autochannel import VERSION
 from autochannel.autochannel import AutoChannel
@@ -123,7 +122,6 @@ async def run_autochannel() -> None:
         LOG.error(f"Failed to initialize database connection: {e}")
         raise
 
-    start_http_server(8000)
     await autochannel.start(TOKEN)
 
 
