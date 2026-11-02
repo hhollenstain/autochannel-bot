@@ -135,7 +135,8 @@ class AutoChannels(commands.Cog):
             cat (discord.CategoryChannel): _description_
             force (bool): _description_
         """
-        category = self.autochannel.session.query(Category).get(cat.id)
+        with self.autochannel._db.transaction() as session:
+            category = session.query(Category).get(cat.id)
         if category is None:
             return
         db_channel_list_id = category.get_channels()
@@ -177,7 +178,8 @@ class AutoChannels(commands.Cog):
         Returns:
             The created voice channel or None if not needed.
         """
-        db_cat = self.autochannel.session.query(Category).get(cat.id)
+        with self.autochannel._db.transaction() as session:
+            db_cat = session.query(Category).get(cat.id)
         if db_cat is None:
             return None
         db_channel_list_id = db_cat.get_channels()
@@ -235,15 +237,16 @@ class AutoChannels(commands.Cog):
         """
         db_cats_disabled = None
         if guild:
-            db_cats = list(
-                self.autochannel.session.query(Category)
-                .with_entities(Category.id)
-                .filter_by(enabled=True, guild_id=guild.id)
-                .all()
-            )
+            with self.autochannel._db.transaction() as session:
+                db_cats = list(
+                    session.query(Category)
+                    .with_entities(Category.id)
+                    .filter_by(enabled=True, guild_id=guild.id)
+                    .all()
+                )
             db_cats = [i[0] for i in db_cats]
             db_cats_disabled = list(
-                self.autochannel.session.query(Category)
+                session.query(Category)
                 .with_entities(Category.id)
                 .filter_by(enabled=False, guild_id=guild.id)
                 .all()
@@ -252,12 +255,10 @@ class AutoChannels(commands.Cog):
             ac_guilds = []
             ac_guilds.append(guild)
         else:
-            db_cats = list(
-                self.autochannel.session.query(Category)
-                .with_entities(Category.id)
-                .filter_by(enabled=True)
-                .all()
-            )
+            with self.autochannel._db.transaction() as session:
+                db_cats = list(
+                    session.query(Category).with_entities(Category.id).filter_by(enabled=True).all()
+                )
             db_cats = [i[0] for i in db_cats]
             ac_guilds = list(autochannel.guilds)
         for server in ac_guilds:
@@ -306,20 +307,23 @@ class AutoChannels(commands.Cog):
                 ]
                 LOG.debug(missing_db_channels)
 
-                for chan in missing_db_channels:
-                    try:
-                        chan_id_add = Channel(
-                            id=chan.id,
-                            cat_id=db_cat.id,
-                            chan_type="voice",
-                            num_suffix=int(self.get_ac_channel(chan)),
-                        )
-                        self.autochannel.session.add(chan_id_add)
-                    except Exception:
-                        LOG.info(f"skipping issue for: guild={server.name}, channel={chan.name}")
+                with self.autochannel._db.transaction() as session:
+                    for chan in missing_db_channels:
+                        try:
+                            chan_id_add = Channel(
+                                id=chan.id,
+                                cat_id=db_cat.id,
+                                chan_type="voice",
+                                num_suffix=int(self.get_ac_channel(chan)),
+                            )
+                            session.add(chan_id_add)
+                        except Exception:
+                            LOG.info(
+                                f"skipping issue for: guild={server.name}, channel={chan.name}"
+                            )
 
-                if len(missing_db_channels) > 0:
-                    self.autochannel.session.commit()
+                    if len(missing_db_channels) > 0:
+                        session.commit()
 
                 """
                 be removed on the 6.1.x release

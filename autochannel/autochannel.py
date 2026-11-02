@@ -20,12 +20,10 @@ class AutoChannel(commands.Bot):
     management, plugin system, and command handling.
 
     Attributes:
-        session: Database session for persisting configuration.
         app_id: Discord application ID.
         auto_channel_prefix: Prefix for auto-generated channels.
         auto_categories: List of category names to monitor.
         env: Environment identifier.
-        dbl_token: DoubleBot token for stats.
         voice_channel_prefix: Prefix for custom voice channels.
         initial_extensions: List of extension modules to load.
         testing_guild_id: Guild ID for testing commands.
@@ -46,13 +44,10 @@ class AutoChannel(commands.Bot):
         """
         super().__init__(*args, **kwargs)
         self._db = DB()
-        self.session = self._db.session()
         self.app_id: str | None = kwargs.get("app_id")
         self.auto_channel_prefix: str = kwargs.get("auto_channel_prefix") or ""
         self.auto_categories: list[str] = kwargs.get("auto_categories", [])
         self.env: str = kwargs.get("env") or "dev"
-        self.dbl_token: str | None = kwargs.get("dbl_token")
-        self.stats: None = None
         self.voice_channel_prefix: str = kwargs.get("voice_channel_prefix") or ""
         self.initial_extensions: list[str] = initial_extensions
         self.testing_guild_id: str | None = kwargs.get("testing_guild_id")
@@ -76,8 +71,6 @@ class AutoChannel(commands.Bot):
 
     async def close(self) -> None:
         """Close the database session when the bot is shutting down."""
-        if hasattr(self, "session") and self.session is not None:
-            self.session.close()
         # Also close the database connection pool
         if hasattr(self, "_db") and self._db is not None:
             self._db.close_all_sessions()

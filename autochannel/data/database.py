@@ -12,7 +12,7 @@ class DB:
 
     def __init__(self) -> None:
         """Initialize the database connection."""
-        self.engine = create_engine(os.getenv("SQLALCHEMY_DATABASE_URI", ""))
+        self.engine = create_engine(os.getenv("SQLALCHEMY_DATABASE_URI", ""), pool_pre_ping=True)
         self._session_factory = sessionmaker(bind=self.engine)
 
     def session(self) -> Session:
