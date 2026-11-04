@@ -19,6 +19,9 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
   - `autochannel.py` - Custom Bot class implementation
   - `autochannel_bot.py` - Main entrypoint
   - `data/` - Database models and session management
+    - `__init__.py` - Package initialization
+    - `database.py` - Database connection setup and session management
+    - `models.py` - SQLAlchemy database models for bot data
   - `lib/` - Utility functions and plugins
     - `plugins/` - Discord cog extensions
     - `metrics.py` - Prometheus metrics tracking
@@ -41,13 +44,18 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
 - `discord.Colour` → `discord.Color` (alias, but Color is recommended)
 - `self.loops.create_task()` → `asyncio.create_task()`
 
-## AGENT INTERACTION GUIDELINES
-1. **Read the spec first**: Always check issue bodies, comments, and linked documents before making changes
-2. **Verify against spec**: Each change should map to a requirement in the spec
-3. **Don't leave stubs**: Complete the work in this run when possible
-4. **Modernize when updating**: When touching a file, apply modern practices (type hints, proper error handling, etc.)
-5. **Lint before commit**: Run `ruff format . && ruff check .` before staging changes
-6. **Test after changes**: Always run the test suite after functional changes
+## Key Dependencies
+
+This project uses several important packages that form the core of the AutoChannel bot functionality:
+
+- **discord.py** - The primary library for Discord API integration. Version >= 2.4.1. [Official Documentation](https://discordpy.readthedocs.io/en/stable/)
+- **aiohttp** - Asynchronous HTTP client/server framework for handling API calls 
+- **SQLAlchemy** - Database ORM for managing bot data persistence
+- **Flask-SQLAlchemy** - Integration of SQLAlchemy with Flask for web interface
+- **Prometheus-client** - Monitoring and metrics collection
+- **PyYAML** - YAML parsing for configuration files
+
+These packages work together to create a robust, scalable Discord bot with monitoring capabilities and persistent data storage.
 
 ## Getting Started
 1. Install dependencies: `uv sync --dev`
