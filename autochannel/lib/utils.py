@@ -102,6 +102,7 @@ def friendly_time(seconds: int) -> str:
     hours, minutes = divmod(minutes, 60)
 
     def _part(value: int, singular: str) -> str:
+        """Format one unit, pluralising when needed."""
         name = singular if value == 1 else f"{singular}s"
         return f"{value} {name}"
 

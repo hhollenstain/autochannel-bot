@@ -27,6 +27,7 @@ class AutoChannel(commands.Bot):
         voice_channel_prefix: Prefix for custom voice channels.
         initial_extensions: List of extension modules to load.
         testing_guild_id: Guild ID for testing commands.
+        dbl_token: top.gg (discordbots.org) API token, if configured.
     """
 
     def __init__(
@@ -51,6 +52,12 @@ class AutoChannel(commands.Bot):
         self.voice_channel_prefix: str = kwargs.get("voice_channel_prefix") or ""
         self.initial_extensions: list[str] = initial_extensions
         self.testing_guild_id: str | None = kwargs.get("testing_guild_id")
+        self.dbl_token: str | None = kwargs.get("dbl_token")
+
+    @property
+    def db(self) -> DB:
+        """Database connection manager shared by all cogs."""
+        return self._db
 
     async def setup_hook(self) -> None:
         """Setup hook called after bot is ready.

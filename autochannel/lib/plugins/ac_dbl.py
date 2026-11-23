@@ -1,3 +1,5 @@
+"""top.gg (discordbots.org) guild count reporting cog."""
+
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +25,16 @@ class DiscordBotsOrgAPI(commands.Cog):
         self.autochannel = autochannel
         self.token: str | None = self.autochannel.dbl_token
         self.dblpy = dbl.DBLClient(self.autochannel, self.token)
-        self.updating = self.autochannel.loop.create_task(self.update_stats())
+        self.updating: asyncio.Task[None] | None = None
+
+    async def cog_load(self) -> None:
+        """Start the periodic guild count update task."""
+        self.updating = asyncio.create_task(self.update_stats())
+
+    async def cog_unload(self) -> None:
+        """Stop the periodic guild count update task."""
+        if self.updating is not None:
+            self.updating.cancel()
 
     async def update_stats(self) -> None:
         """This function runs every 30 minutes to automatically update your server count"""

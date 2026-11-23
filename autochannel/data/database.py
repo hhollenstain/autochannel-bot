@@ -1,6 +1,9 @@
+"""Database engine and session management."""
+
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine
@@ -24,11 +27,16 @@ class DB:
         return self._session_factory()
 
     @contextmanager
-    def transaction(self):
+    def transaction(self) -> Iterator[Session]:
         """Provide a transaction context manager for database operations.
 
         This ensures that database operations are properly committed or rolled back
-        in case of exceptions, and that sessions are properly closed.
+        in case of exceptions, and that sessions are properly closed. Objects loaded
+        in the session expire when it closes, so copy what you need before leaving
+        the ``with`` block.
+
+        Yields:
+            A session that is committed on success and rolled back on error.
         """
         session = self.session()
         try:

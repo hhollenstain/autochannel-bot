@@ -153,16 +153,8 @@ async def run_autochannel() -> None:
     if TOKEN is None:
         raise RuntimeError("TOKEN environment variable is required")
 
-    # Set transaction isolation level to prevent locking issues
-    try:
-        # We should ensure there's a consistent session management approach
-        # This step may involve adding a check to verify our approach works correctly
-        LOG.info("Database connection initialized with proper session handling")
-    except Exception as e:
-        LOG.error(f"Failed to initialize database connection: {e}")
-        raise
-
-    await autochannel.start(TOKEN)
+    async with autochannel:
+        await autochannel.start(TOKEN)
 
 
 def main() -> None:
