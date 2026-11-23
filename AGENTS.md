@@ -24,6 +24,7 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
     - `models.py`
   - `lib/` - Utility functions and plugins
     - `plugins/` - Discord cog extensions
+    - `maintenance.py` - Pure auto channel maintenance rules (create/delete planning)
     - `metrics.py` - Prometheus metrics tracking
     - `utils.py` - Helper functions
 - `.github/workflows/` - GitHub Actions CI/CD pipelines
@@ -46,7 +47,8 @@ The bot initialization flow:
 5. The bot connects to Discord using the provided token
 
 ## Key Dependencies
-- **discord.py**: >=2.4.1 - Primary framework for interacting with Discord API
+- **Python**: >=3.13 (CI on 3.13 and 3.14; Docker image uses 3.14)
+- **discord.py**: >=2.7.1 - Primary framework for interacting with Discord API
 - **SQLAlchemy**: Database ORM for PostgreSQL integration
 - **aiohttp**: Asynchronous HTTP client for API requests
 - **Flask-SQLAlchemy**: Integration between Flask and SQLAlchemy for database management
@@ -67,7 +69,17 @@ The documentation for discord.py can be found at: [https://discordpy.readthedocs
 - **Linting**: `ruff format . && ruff check .`
 - **Type checking**: `mypy --package autochannel --strict`
 - **Testing**: `make test` or `pytest -v`
-- CI runs lint, type check, and tests on Python 3.10, 3.11, 3.12
+- CI runs lint, type check, and tests on Python 3.13 and 3.14
+
+## Channel Maintenance
+- Voice state changes, channel deletes and `/sync` only *queue* a category; the
+  single `queue_loop` worker reconciles it to `empty_count` empty auto channels
+  (0 when the category is disabled), deleting highest-numbered empties first.
+- Never keep SQLAlchemy models past their `DB.transaction()` block; use
+  `CategorySnapshot` from `lib/maintenance.py` instead.
+- App command errors meant for `@cmd.error` handlers must subclass
+  `app_commands.AppCommandError`, otherwise they arrive wrapped in `CommandInvokeError`.
+- Context menus can't live inside cogs; define them at module level and add them to `bot.tree`.
 
 ## Discord.py Migration Notes
 - `discord.Game` → `discord.Activity(type=discord.ActivityType.playing)`

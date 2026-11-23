@@ -1,3 +1,5 @@
+"""Server info command, error handling and status background tasks."""
+
 from __future__ import annotations
 
 import asyncio
@@ -23,19 +25,31 @@ class Server(commands.Cog):
             autochannel: The bot instance.
         """
         self.autochannel = autochannel
+        self._tasks: list[asyncio.Task[None]] = []
 
     async def cog_load(self) -> None:
-        """Initialize the cog and start background tasks."""
+        """Start the status and metrics background tasks.
+
+        Each task waits for the bot to be ready before touching the gateway.
+        """
+        self._tasks = [
+            asyncio.create_task(utils.change_status(self.autochannel)),
+            asyncio.create_task(utils.list_servers(self.autochannel)),
+            asyncio.create_task(utils.list_users(self.autochannel)),
+        ]
+
+    async def cog_unload(self) -> None:
+        """Cancel the background tasks started in :meth:`cog_load`."""
+        for task in self._tasks:
+            task.cancel()
+        self._tasks.clear()
+
+    @commands.Cog.listener()
+    async def on_ready(self) -> None:
+        """Log the bot user once the gateway connection is ready."""
         user = self.autochannel.user
         if user is not None:
             LOG.info(f"Logged in as {user.name}")
-        await self.autochannel.change_presence(
-            status=discord.Status.online,
-            activity=discord.Game(name="Waking up, making coffee..."),
-        )
-        asyncio.create_task(utils.change_status(self.autochannel))
-        asyncio.create_task(utils.list_servers(self.autochannel))
-        asyncio.create_task(utils.list_users(self.autochannel))
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context[AutoChannel], error: Exception) -> None:

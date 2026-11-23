@@ -1,3 +1,5 @@
+"""Prometheus metrics for AutoChannel commands, tasks and bot state."""
+
 from __future__ import annotations
 
 import logging
@@ -57,6 +59,7 @@ def command_metrics_counter[F: Callable[..., Awaitable[Any]]](f: F) -> F:
 
     @wraps(f)
     async def wrapper(self: commands.Cog, *args: Any, **kwargs: Any) -> Any:
+        """Count the command invocation, then run it."""
         guild = args[0].guild
         COMMAND_COUNT.labels(command=f"autochan.command.{f.__name__}", guild=guild).inc()
         LOG.debug(f'STATS INCR: autochannel_bot.command.{f.__name__}.count tags=[f"guild:{guild}"]')
@@ -77,6 +80,7 @@ def task_metrics_counter[F: Callable[..., Awaitable[Any]]](f: F) -> F:
 
     @wraps(f)
     async def wrapper(self: commands.Cog, *args: Any, **kwargs: Any) -> Any:
+        """Count the task invocation, then run it."""
         guild = args[0].guild
         TASK_COUNT.labels(task=f"autochan.task.{f.__name__}", guild=guild).inc()
         LOG.debug(

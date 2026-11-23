@@ -13,7 +13,7 @@ over all this, but should be straight forward. Check out [uv](https://github.com
 
 #### make init
 does the base install of the source package through uv that should already be installed,
-if a local uv venv isn't yet setup this is when it will happen (python 3.12+)
+if a local uv venv isn't yet setup this is when it will happen (python 3.13+)
 
 #### make check
 Designed to do linting and uv dependency checking

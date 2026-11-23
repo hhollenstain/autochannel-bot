@@ -1,8 +1,10 @@
+"""SQLAlchemy models shared with the auto-chan.io dashboard."""
+
 from __future__ import annotations
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import BigInteger, Boolean, Integer, String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -46,6 +48,7 @@ class Channel(Base):
     category: Mapped[Category] = relationship("Category", back_populates="channels")
 
     def __repr__(self) -> str:
+        """Return a debug representation of the channel row."""
         return (
             f"Channel(id={self.id}, cat_id={self.cat_id}, "
             f"chan_type='{self.chan_type}', num_suffix={self.num_suffix})"
@@ -84,7 +87,7 @@ class Category(Base):
         """
         return [channel.num_suffix for channel in self.channels]
 
-    def save_with_transaction(self, session):
+    def save_with_transaction(self, session: Session) -> None:
         """Save the category with explicit transaction handling.
 
         This method ensures that the category is properly added to
@@ -114,6 +117,7 @@ class Guild(Base):
     categories: Mapped[list[Category]] = relationship("Category", back_populates="guild")
 
     def __repr__(self) -> str:
+        """Return a debug representation of the guild row."""
         return f"Guild({self.id})"
 
     def get_categories(self) -> dict[int, dict[str, str | bool | int]]:
