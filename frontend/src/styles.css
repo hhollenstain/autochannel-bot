@@ -1,0 +1,412 @@
+/* Ported from the Jinja UI's static/css/sidebar.css (Discord dark theme). */
+
+:root {
+  --ac-bg: #36393f;
+  --ac-dark: #202225;
+  --ac-accent: #7386d5;
+  --ac-accent-dark: #6d7fcc;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--ac-bg);
+  color: #fff;
+}
+
+p {
+  font-size: 1.1em;
+  font-weight: 300;
+  line-height: 1.7em;
+  color: #999;
+}
+
+a,
+a:hover,
+a:focus {
+  color: inherit;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.text-muted {
+  color: #999 !important;
+}
+
+img.img-circle {
+  border-radius: 50%;
+}
+
+.icon {
+  vertical-align: -0.125em;
+}
+
+/* ---------------------------------------------------
+    TOP NAV / FOOTER
+----------------------------------------------------- */
+
+.navbar {
+  padding: 15px 10px;
+  background: var(--ac-dark);
+}
+
+.top-nav {
+  flex-wrap: nowrap;
+}
+
+.top-guild {
+  padding-bottom: 6px;
+}
+
+.footer {
+  padding: 1rem 2rem;
+}
+
+#sidebarCollapse {
+  width: 40px;
+  height: 40px;
+  background: var(--ac-dark);
+  border: none;
+  border-radius: 15%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#sidebarCollapse span {
+  width: 80%;
+  height: 2px;
+  margin: 0 auto;
+  display: block;
+  background: #555;
+  transition: all 0.8s cubic-bezier(0.81, -0.33, 0.345, 1.375);
+  transition-delay: 0.2s;
+}
+
+#sidebarCollapse span:first-of-type {
+  transform: rotate(45deg) translate(2px, 2px);
+}
+#sidebarCollapse span:nth-of-type(2) {
+  opacity: 0;
+}
+#sidebarCollapse span:last-of-type {
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+#sidebarCollapse.active span {
+  transform: none;
+  opacity: 1;
+  margin: 5px auto;
+}
+
+/* ---------------------------------------------------
+    SIDEBAR
+----------------------------------------------------- */
+
+.wrapper {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+#sidebar {
+  min-width: 250px;
+  max-width: 250px;
+  background: var(--ac-accent);
+  color: #fff;
+  transition: all 0.3s;
+}
+
+#sidebar.active {
+  min-width: 80px;
+  max-width: 80px;
+  text-align: center;
+}
+
+#sidebar .expanded-text {
+  display: inline;
+  margin: 0 0 0 10px;
+}
+
+#sidebar.active .expanded-text {
+  display: none;
+}
+
+#sidebar .sidebar-header {
+  padding: 20px;
+  background: var(--ac-accent-dark);
+}
+
+#sidebar ul.components {
+  padding: 20px 0;
+}
+
+#sidebar .sidebar-link,
+#sidebar ul li a {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  font-size: 1.1em;
+  text-align: left;
+  color: #fff;
+  background: transparent;
+  border: none;
+}
+
+#sidebar.active .sidebar-link,
+#sidebar.active ul li a {
+  padding: 20px 10px;
+  text-align: center;
+}
+
+#sidebar.active .sidebar-link .icon {
+  display: block;
+  margin: 0 auto 5px;
+  font-size: 1.8em;
+}
+
+#sidebar .sidebar-link:hover,
+#sidebar ul li a:hover {
+  color: var(--ac-accent);
+  background: #fff;
+}
+
+#sidebar .sidebar-link[aria-expanded='true'] {
+  background: var(--ac-accent-dark);
+  color: #fff;
+}
+
+.dropdown-toggle {
+  position: relative;
+}
+
+.dropdown-toggle::after {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+}
+
+#sidebar.active .dropdown-toggle::after {
+  top: auto;
+  bottom: 10px;
+  right: 50%;
+  transform: translateX(50%);
+}
+
+#sidebar .submenu a {
+  font-size: 0.9em;
+  padding-left: 30px;
+  background: var(--ac-accent-dark);
+}
+
+#sidebar.active .submenu a {
+  padding: 10px;
+}
+
+#sidebar ul li a.sidebar-guild,
+#sidebar ul li a.sidebar-guild:hover {
+  background: transparent;
+  color: #fff;
+}
+
+.select-server-hover:hover {
+  background: var(--ac-accent-dark);
+}
+
+/* ---------------------------------------------------
+    CONTENT
+----------------------------------------------------- */
+
+#content {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  transition: all 0.3s;
+}
+
+.content-inner {
+  padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 2px solid var(--ac-accent-dark);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.select-server {
+  margin-right: 18px;
+}
+
+.select-server img {
+  border: 2px solid #fff;
+}
+
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--ac-accent);
+  --bs-btn-border-color: var(--ac-accent);
+  --bs-btn-hover-color: var(--ac-accent-dark);
+  --bs-btn-hover-bg: #fff;
+  --bs-btn-hover-border-color: var(--ac-accent-dark);
+  --bs-btn-active-bg: var(--ac-accent-dark);
+  --bs-btn-disabled-bg: var(--ac-accent);
+  --bs-btn-disabled-border-color: var(--ac-accent);
+}
+
+.form-check-input:checked {
+  background-color: var(--ac-accent);
+  border-color: var(--ac-accent);
+}
+
+.form-switch .form-check-input {
+  width: 3em;
+  height: 1.5em;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------
+    CATEGORY TABLE / TABS
+----------------------------------------------------- */
+
+.discord-dark-col {
+  --bs-table-bg: transparent;
+  --bs-table-color: #fff;
+}
+
+.discord-dark-col thead th {
+  border-bottom: 2px solid var(--ac-accent-dark);
+  cursor: help;
+}
+
+.discord-dark-col td,
+.discord-dark-col th {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--ac-accent-dark);
+  border-top: none;
+}
+
+.nav-tabs {
+  border-bottom: none;
+}
+
+.nav-tab-header {
+  margin-right: 15px;
+  margin-bottom: 10px;
+}
+
+.nav-tab-header.active {
+  background-color: var(--ac-accent-dark);
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+}
+
+.hvrcenter {
+  display: inline-block;
+  vertical-align: middle;
+  transform: perspective(1px) translateZ(0);
+  position: relative;
+  overflow: hidden;
+}
+.hvrcenter::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  right: 50%;
+  bottom: 0;
+  background: var(--ac-accent);
+  height: 2px;
+  transition-property: left, right;
+  transition-duration: 0.3s;
+  transition-timing-function: ease-out;
+}
+.hvrcenter:hover::before,
+.hvrcenter:focus::before,
+.hvrcenter:active::before {
+  left: 0;
+  right: 0;
+}
+
+/* ---------------------------------------------------
+    TOASTS (replaces toastr)
+----------------------------------------------------- */
+
+.toast-stack {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 320px;
+}
+
+.ac-toast {
+  position: relative;
+  padding: 12px 36px 12px 16px;
+  border-radius: 4px;
+  color: #fff;
+  box-shadow: 0 0 12px #000;
+  animation: ac-slide-down 0.3s ease-out;
+}
+
+.ac-toast .btn-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 0.6em;
+  height: 0.6em;
+}
+
+.ac-toast-success {
+  background: #51a351;
+}
+
+.ac-toast-error {
+  background: #bd362f;
+}
+
+@keyframes ac-slide-down {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+}
+
+/* Subset of animate.css used by the old templates. */
+.animated.bounceInUp {
+  animation: ac-bounce-in-up 0.8s both;
+}
+
+@keyframes ac-bounce-in-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 300px, 0);
+  }
+  60% {
+    opacity: 1;
+    transform: translate3d(0, -20px, 0);
+  }
+  75% {
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated.bounceInUp,
+  .ac-toast {
+    animation: none;
+  }
+}

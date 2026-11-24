@@ -1,125 +1,65 @@
 import logging
+from sqlalchemy import select
 from autochannel import db
-from autochannel.models import Guild, Category, Channel
-from autochannel.lib.utils import str2bool
+from autochannel_db import Guild, Category
 
 LOG = logging.getLogger(__name__)
 
-def data_update_cat_enable(channel_id, enabled):
-    """[summary]
-    
-    Arguments:
-        channel_id {[type]} -- [description]
-        enabled {[type]} -- [description]
-    """
-    enabled = str2bool(enabled)
-    category = Category.query.get(channel_id)
-    category.enabled = enabled
-    db.session.commit()
 
-def data_update_cat_custom_enable(channel_id, enabled):
-    """[summary]
-    
-    Arguments:
-        channel_id {[type]} -- [description]
-        enabled {[type]} -- [description]
-    """
-    enabled = str2bool(enabled)
-    category = Category.query.get(channel_id)
-    category.custom_enabled = enabled
-    db.session.commit()
+def get_guild_from_db(guild_id):
+    return db.session.get(Guild, int(guild_id))
 
-def data_update_cat_prefix(channel_id, prefix):
-    """[summary]
-    
-    Arguments:
-        channel_id {[type]} -- [description]
-        prefix {[type]} -- [description]
-    """
-    category = Category.query.get(channel_id)
-    category.prefix = prefix
-    db.session.commit()
 
-def data_update_cat_custom_prefix(channel_id, prefix):
-    """[summary]
-    
-    Arguments:
-        channel_id {[type]} -- [description]
-        prefix {[type]} -- [description]
-    """
-    category = Category.query.get(channel_id)
-    category.custom_prefix = prefix
+def add_guild(guild_id):
+    if get_guild_from_db(guild_id):
+        return
+    db.session.add(Guild(id=int(guild_id)))
     db.session.commit()
+    LOG.debug(f'GUILD Added: {guild_id}')
 
-def data_update_cat_channel_size(channel_id, channel_size):
-    """[summary]
-    
-    Arguments:
-        channel_id {[type]} -- [description]
-        channel_size {[type]} -- [description]
-    """
-    category = Category.query.get(channel_id)
-    category.channel_size = channel_size
-    db.session.commit()
 
-def data_update_cat_empty_count(channel_id, empty_count):
-    """[summary]
-    
-    Arguments:
-        channel_id {[type]} -- [description]
-        channel_size {[type]} -- [description]
-    """
-    category = Category.query.get(channel_id)
-    category.empty_count = empty_count
+def get_category(guild_id, category_id):
+    """Return the category only if it belongs to ``guild_id``."""
+    category = db.session.get(Category, int(category_id))
+    if category is None or category.guild_id != int(guild_id):
+        return None
+    return category
+
+
+def update_category(category, **fields):
+    for name, value in fields.items():
+        setattr(category, name, value)
     db.session.commit()
+    return category
+
 
 def data_update_guild_categories(guild_id, categories):
-    """[summary]
-    
-    Arguments:
-        guild_id {[type]} -- [description]
-        categories {[type]} -- [description]
-    """
-    cats = list(Category.query.with_entities(Category.id).filter_by(guild_id=guild_id).all())
-    cats = [i[0] for i in cats]
-    """This converts a list of tuples to a list for my own sanity
-    """
-    existing_cats = [int(c) for c in categories]
-    """Creates a list of existing cats in discord
-    """
-    miss_cats = set(existing_cats).difference(cats)
-    delete_cats = set(cats).difference(existing_cats)
+    """Make the DB's categories for ``guild_id`` match the ones currently in Discord.
 
-    if len(miss_cats) > 0 or len(delete_cats) > 0:
-        update_categories = True
-    else:
-        update_categories = False
+    Arguments:
+        guild_id {int|str} -- guild snowflake
+        categories {list} -- [{id, name, ...}] from discordData.parse_categories
+    """
+    guild_id = int(guild_id)
+    db_cats = set(db.session.scalars(select(Category.id).filter_by(guild_id=guild_id)))
+    discord_cats = {int(c['id']): c['name'] for c in categories}
+
+    miss_cats = discord_cats.keys() - db_cats
+    delete_cats = db_cats - discord_cats.keys()
 
     for mc in miss_cats:
-        cat_id_add = Category(id=mc, guild_id=guild_id)
-        db.session.add(cat_id_add)
-        LOG.debug(f'Adding category: {categories[str(mc)]["name"]} to guild: {guild_id}')        
+        db.session.add(Category(id=mc, guild_id=guild_id))
+        LOG.debug(f'Adding category: {discord_cats[mc]} to guild: {guild_id}')
 
-    for dc in delete_cats: 
-        cat_id_delete = Category.query.get(dc)
-        for chan in cat_id_delete.get_channels():
-            chan_id_delete = Channel.query.get(chan)
-            LOG.debug(f'deleting channel due to missing parent category {chan_id_delete}')
-            db.session.delete(chan_id_delete)
-        db.session.delete(cat_id_delete)
+    for dc in delete_cats:
+        # Channel rows go with it via the relationship's delete-orphan cascade.
+        db.session.delete(db.session.get(Category, dc))
         LOG.debug(f'Deleting category: {dc} that no longer exists in the Guild')
 
-    if update_categories:
+    if miss_cats or delete_cats:
         db.session.commit()
 
-def get_guild_from_db(guild_id=None):
-    """[summary]
-    
-    Keyword Arguments:
-        guild_id {[type]} -- [description] (default: {None})
-    
-    Returns:
-        [type] -- [description]
-    """
-    guild = db.session.query(Guild).get(guild_id)
-    return guild
+    return {
+        c.id: c
+        for c in db.session.scalars(select(Category).filter_by(guild_id=guild_id))
+    }

@@ -1,7 +1,15 @@
 .env
+.env-dev
+.git
 .vscode
-migrations/
+.venv
+.uv-cache
+.npm-cache
+**/__pycache__
+**/node_modules
+frontend/dist
+tests
 docker-compose.yml
 Dockerfile
-manage.py
 *.egg-info
+autochannel/site.db
