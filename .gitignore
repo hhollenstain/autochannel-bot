@@ -21,3 +21,14 @@ pip-delete-this-directory.txt
 
 # editor
 .vscode
+
+# python / uv
+.venv/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+
+# frontend
+node_modules/
+.npm-cache/
+frontend/dist/

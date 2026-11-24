@@ -1,11 +1,8 @@
-import os
 import logging
 import requests
-from flask import Flask, session, request, url_for, render_template, redirect, \
- jsonify, flash, abort, Response
+from flask import session, request, abort
 from flask import current_app as app
 from requests_oauthlib import OAuth2Session
-from itsdangerous import JSONWebSignatureSerializer
 from autochannel.lib import discordData
 
 """
@@ -21,163 +18,73 @@ Channel types:
 
 LOG = logging.getLogger(__name__)
 
-def get_guild_categories(server_id):
-    """[summary]
-    
-    Arguments:
-        server_id {[type]} -- [description]
-    
+OAUTH2_SCOPE = ['identify', 'email', 'guilds', 'connections', 'guilds.join']
+# MANAGE_CHANNELS | VIEW_CHANNEL | CONNECT | MOVE_MEMBERS (unchanged from the jinja UI)
+BOT_PERMISSIONS = '85009'
+MANAGE_GUILD = 1 << 5
+
+
+def get_guild_categories(guild_id):
+    """Fetch a guild's categories with the bot token.
+
     Returns:
-        [type] -- [description]
+        list of {id, name, position}, or None when the bot can't see the guild
+        (it was never added or has been removed).
     """
-    headers = {'Authorization': 'Bot '+app.config['AC_TOKEN']}
-    r = requests.get(app.config['API_BASE_URL']+'/guilds/{}/channels'.format(server_id),
-                     headers=headers)
+    headers = {'Authorization': 'Bot ' + app.config['AC_TOKEN']}
+    r = requests.get(f"{app.config['API_BASE_URL']}/guilds/{guild_id}/channels",
+                     headers=headers, timeout=10)
     if r.status_code == 200:
-        channels = r.json() 
-        categories = list(filter(lambda c: c['type'] == 4, channels))
-        categories = discordData.parsed_categories(categories)
-        return categories
-    
+        return discordData.parse_categories(r.json())
+
+    LOG.info(f'Bot could not list channels for guild {guild_id}: {r.status_code}')
     return None
 
-def get_guild_channels(server_id, voice=True, text=True):
-    """[summary]
-    
-    Arguments:
-        server_id {[type]} -- [description]
-    
-    Keyword Arguments:
-        voice {bool} -- [description] (default: {True})
-        text {bool} -- [description] (default: {True})
-    
-    Returns:
-        [type] -- [description]
-    """
-    headers = {'Authorization': 'Bot '+app.config['AC_TOKEN']}
-    r = requests.get(app.config['API_BASE_URL']+'/guilds/{}/channels'.format(server_id),
-                     headers=headers)
-    if r.status_code == 200:
-        channels = r.json() 
-        if not voice:
-            channels = list(filter(lambda c: c['type'] != 2, channels))
-        if not text:
-            channels = list(filter(lambda c: c['type'] != 0, channels))
-        return channels
-    return None
-
-def get_managed_guilds():
-    """[summary]
-    
-    Returns:
-        [type] -- [description]
-    """
-    token = session['oauth2_token']
-    user = get_user(token)
-    guilds = get_user_guilds(token)
-    user_servers = sorted(
-        get_user_managed_servers(user, guilds),
-        key=lambda s: s['name'].lower()
-    )
-    guild_data = discordData.parse_managed_guilds(user_servers)
-    return guild_data
-
-def get_guild(guild_id):
-    """[summary]
-    
-    Arguments:
-        guild_id {[type]} -- [description]
-    
-    Returns:
-        [type] -- [description]
-    """
-    token = session['oauth2_token']
-    guilds = get_user_guilds(token)
-    gid = str(guild_id)
-    return [g for g in guilds if g['id'] == gid]
 
 def get_user(token):
-    """[summary]
-    
-    Arguments:
-        token {[type]} -- [description]
-    
-    Returns:
-        [type] -- [description]
-    """
-    if 'user' in session:
-        return session['user']
-
     discord = make_session(token=token)
-    try:
-        req = discord.get(app.config['API_BASE_URL'] + '/users/@me')
-    except Exception:
-        return None
-
+    req = discord.get(app.config['API_BASE_URL'] + '/users/@me')
     if req.status_code != 200:
         abort(req.status_code)
+    return req.json()
 
-    user = req.json()
-    # Saving that to the session for easy template access
-    session['user'] = user
-    return user
 
 def get_user_guilds(token):
-    """[summary]
-    
-    Arguments:
-        token {[type]} -- [description]
-    
-    Returns:
-        [type] -- [description]
-    """
-    # If it's an api_token, go fetch the discord_token
-    if not token.get('api_key'):
-        get_user(token)
-
     discord = make_session(token=token)
-
     req = discord.get(app.config['API_BASE_URL'] + '/users/@me/guilds')
     if req.status_code != 200:
         abort(req.status_code)
+    return req.json()
 
-    guilds = req.json()
-    return guilds
 
-def get_user_managed_servers(user, guilds):
-    """[summary]
-    
-    Arguments:
-        user {[type]} -- [description]
-        guilds {[type]} -- [description]
-    
-    Returns:
-        [type] -- [description]
-    """
-    return list(
-        filter(
-            lambda g: (g['owner'] is True) or
-            bool((int(g['permissions']) >> 5) & 1),
-            guilds)
+def get_user_managed_servers(guilds):
+    """Guilds the user owns or has the Manage Server permission in."""
+    return [
+        g for g in guilds
+        if g.get('owner') is True or bool(int(g['permissions']) & MANAGE_GUILD)
+    ]
+
+
+def get_managed_guilds(token):
+    return discordData.parse_managed_guilds(get_user_managed_servers(get_user_guilds(token)))
+
+
+def get_invite_link(guild_id):
+    """URL that adds the bot to ``guild_id`` and returns to /api/add-guild."""
+    return (
+        f"{app.config['AUTHORIZATION_BASE_URL']}?client_id={app.config['OAUTH2_CLIENT_ID']}"
+        f"&scope=bot&permissions={BOT_PERMISSIONS}&guild_id={guild_id}"
+        f"&disable_guild_select=true&response_type=code"
+        f"&redirect_uri={request.url_root}api/add-guild"
     )
 
-def make_session(token=None, state=None, scope=None):
-    """[summary]
-    
-    Keyword Arguments:
-        token {[type]} -- [description] (default: {None})
-        state {[type]} -- [description] (default: {None})
-        scope {[type]} -- [description] (default: {None})
-    
-    Returns:
-        [type] -- [description]
-    """
-    scope = ['identify', 'email', 'guilds', 'connections', 'guilds.join']
+
+def make_session(token=None, state=None):
     return OAuth2Session(
         client_id=app.config['OAUTH2_CLIENT_ID'],
         token=token,
         state=state,
-        scope=scope,
+        scope=OAUTH2_SCOPE,
         redirect_uri=app.config['OAUTH2_REDIRECT_URI'],
         auto_refresh_kwargs={
             'client_id': app.config['OAUTH2_CLIENT_ID'],
@@ -186,10 +93,6 @@ def make_session(token=None, state=None, scope=None):
         auto_refresh_url=app.config['TOKEN_URL'],
         token_updater=token_updater)
 
+
 def token_updater(token):
-    """[summary]
-    
-    Arguments:
-        token {[type]} -- [description]
-    """
     session['oauth2_token'] = token
