@@ -29,10 +29,8 @@ with one `uv.lock`. Both Dockerfiles build with the repo root as context
   - `__init__.py` - Package metadata and version info
   - `autochannel.py` - Custom Bot class implementation
   - `autochannel_bot.py` - Main entrypoint
-  - `data/` - Database models and session management
-    - `__init__.py`
-    - `database.py`
-    - `models.py`
+  - `data/` - Database session management (`database.py`); the models come from
+    `autochannel_db` (`packages/autochannel-db`)
   - `lib/` - Utility functions and plugins
     - `plugins/` - Discord cog extensions
     - `maintenance.py` - Pure auto channel maintenance rules (create/delete planning)
@@ -45,7 +43,8 @@ with one `uv.lock`. Both Dockerfiles build with the repo root as context
 The AutoChannel bot follows a modular architecture with the following component relationships:
 1. **Main Entry Point**: `autochannel_bot.py` initializes the bot and sets up configuration
 2. **Core Bot Class**: `autochannel.py` extends discord.Client with custom functionality 
-3. **Database Layer**: `data/` package handles all database interactions via SQLAlchemy
+3. **Database Layer**: `data/` manages sessions; `Guild`, `Category` and `Channel` are imported
+   from the shared `autochannel_db` package
 4. **Plugin System**: `lib/plugins/` contains Discord cogs that extend bot functionality
 5. **Metrics**: `lib/metrics.py` provides Prometheus monitoring integration
 6. **Utility Functions**: `lib/utils.py` contains shared helper functions
@@ -62,7 +61,8 @@ The bot initialization flow:
 - **discord.py**: >=2.7.1 - Primary framework for interacting with Discord API
 - **SQLAlchemy**: Database ORM for PostgreSQL integration
 - **aiohttp**: Asynchronous HTTP client for API requests
-- **Flask-SQLAlchemy**: Integration between Flask and SQLAlchemy for database management
+- **autochannel-db**: Shared models + Alembic migrations (workspace package). Schema changes go
+  there with a migration, never in the bot
 
 ### discord.py Documentation
 The AutoChannel bot uses [discord.py](https://discordpy.readthedocs.io/) as its primary framework. This library provides:

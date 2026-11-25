@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
-from autochannel.data.models import Category
+from autochannel_db import Category
 
 
 @dataclass(frozen=True, slots=True)

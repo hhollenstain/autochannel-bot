@@ -8,6 +8,7 @@ import logging
 import time
 
 import discord
+from autochannel_db import Category, Channel
 from discord import app_commands
 from discord.ext import commands
 from profanityfilter import ProfanityFilter
@@ -15,7 +16,6 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from autochannel.autochannel import AutoChannel
-from autochannel.data.models import Category, Channel
 from autochannel.lib.maintenance import (
     CategorySnapshot,
     channels_to_create,
