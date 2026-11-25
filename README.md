@@ -26,8 +26,19 @@ just install          # uv sync + npm ci
 just api              # Flask API on :5000 (needs the env vars from .env.example)
 just web              # Vite dev server on :5173, proxies /api, /login, /logout to :5000
 just test             # pytest + frontend typecheck/tests
+just e2e              # Playwright browser tests with mocked /api; screenshots → frontend/e2e/screenshots/
 just migrate          # alembic upgrade head against $SQLALCHEMY_DATABASE_URI
 ```
+
+Browser tests (`frontend/e2e/`):
+
+- Install Chromium once: `cd frontend && npx playwright install chromium`.
+- `just e2e` (or `cd frontend && npm run test:e2e`) builds the SPA, serves it with
+  `vite preview` on :4173, and drives it in headless Chromium. Every `/api/*` call is mocked
+  in the browser and outside requests (Google Fonts) are stubbed, so no API on :5000, Discord
+  login, database or internet access is needed. Any unmocked request fails the test.
+- Each screen saves a full-page PNG to `frontend/e2e/screenshots/` (override with
+  `SCREENSHOT_DIR`). The folder is cleared at the start of each run and is git-ignored.
 
 For local OAuth via the Vite server set `FRONTEND_URL=http://localhost:5173` so the API
 redirects back to it after login.

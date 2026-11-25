@@ -14,6 +14,10 @@ test:
     uv run pytest
     cd frontend && npm run typecheck && npm test
 
+# Playwright browser tests against the built SPA with /api mocked; screenshots → frontend/e2e/screenshots/
+e2e:
+    cd frontend && npm run test:e2e
+
 build-web:
     cd frontend && npm run build
 

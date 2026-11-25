@@ -32,3 +32,6 @@ pip-delete-this-directory.txt
 node_modules/
 .npm-cache/
 frontend/dist/
+frontend/e2e/screenshots/
+frontend/e2e/test-results/
+frontend/playwright-report/
