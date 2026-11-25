@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router';
 import { api, ApiError, type CategorySettings, type GuildDetail } from '../api';
 import CategoryTable from '../components/CategoryTable';
-import GuildHeader from '../components/GuildHeader';
+import PageHeader from '../components/PageHeader';
 import { useTitle } from '../hooks';
 import { useSession } from '../session';
 import NotFound from './NotFound';
@@ -14,6 +14,10 @@ type State =
   | { status: 'invite'; inviteUrl: string }
   | { status: 'not-found' }
   | { status: 'error'; message: string };
+
+type Tab = 'auto' | 'custom';
+
+const BACK = { to: '/dashboard', label: 'All servers' };
 
 export default function GuildCategories() {
   return (
@@ -27,7 +31,8 @@ function GuildCategoriesInner() {
   const { guildId = '' } = useParams();
   const { me } = useSession();
   const [state, setState] = useState<State>({ status: 'loading' });
-  const [tab, setTab] = useState<'auto' | 'custom'>('auto');
+  const [tab, setTab] = useState<Tab>('auto');
+  const tabsId = useId();
   const guild = me?.guilds.find((g) => g.id === guildId);
 
   useTitle(guild && me ? `Categories for ${guild.name}: ${me.user.username}` : 'Guild Categories');
@@ -73,14 +78,22 @@ function GuildCategoriesInner() {
     case 'not-found':
       return <NotFound />;
     case 'error':
-      return <div className="alert alert-danger mt-3">Could not load this server: {state.message}</div>;
+      return (
+        <>
+          <PageHeader icon={guild?.icon} title={guild?.name ?? 'Server'} back={BACK} />
+          <div className="alert alert-danger" role="alert">
+            Could not load this server: {state.message}
+          </div>
+        </>
+      );
     case 'invite':
       return (
         <>
-          <GuildHeader icon={guild?.icon}>{guild?.name}</GuildHeader>
-          <div className="text-center mt-4">
-            <h4>Auto-chan isn't in this server yet.</h4>
-            <a className="btn btn-primary mt-3" href={state.inviteUrl}>
+          <PageHeader icon={guild?.icon} title={guild?.name ?? 'Server'} back={BACK} />
+          <div className="state-panel surface">
+            <h2>Auto-chan isn't in this server yet.</h2>
+            <p>Add the bot through Discord, then come back here to choose its settings.</p>
+            <a className="btn btn-primary btn-lg" href={state.inviteUrl}>
               Add Auto-chan to {guild?.name ?? 'this server'}
             </a>
           </div>
@@ -88,18 +101,36 @@ function GuildCategoriesInner() {
       );
     case 'ready': {
       const { guild: g, categories } = state.detail;
+      const tabId = (t: Tab) => `${tabsId}-${t}`;
       return (
         <>
-          <GuildHeader icon={g.icon}>{g.name}</GuildHeader>
-          <ul className="nav nav-tabs justify-content-center mb-2" role="tablist">
-            <TabButton active={tab === 'auto'} onClick={() => setTab('auto')}>
-              AutoChannel
-            </TabButton>
-            <TabButton active={tab === 'custom'} onClick={() => setTab('custom')}>
-              Custom Channels
-            </TabButton>
-          </ul>
-          <CategoryTable guildId={guildId} categories={categories} mode={tab} onUpdated={onUpdated} />
+          <PageHeader
+            icon={g.icon}
+            title={g.name}
+            description="Choose how Auto-chan manages voice channels in each category."
+            back={BACK}
+          />
+          <div className="settings-toolbar">
+            <div className="segmented" role="tablist" aria-label="Channel settings">
+              <TabButton id={tabId('auto')} panel={`${tabsId}-panel`} active={tab === 'auto'} onClick={() => setTab('auto')}>
+                AutoChannel
+              </TabButton>
+              <TabButton
+                id={tabId('custom')}
+                panel={`${tabsId}-panel`}
+                active={tab === 'custom'}
+                onClick={() => setTab('custom')}
+              >
+                Custom Channels
+              </TabButton>
+            </div>
+            <p>
+              After saving, run <code>!acupdate</code> in your server to sync the bot.
+            </p>
+          </div>
+          <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={tabId(tab)}>
+            <CategoryTable guildId={guildId} categories={categories} mode={tab} onUpdated={onUpdated} />
+          </div>
         </>
       );
     }
@@ -107,19 +138,29 @@ function GuildCategoriesInner() {
 }
 
 function TabButton({
+  id,
+  panel,
   active,
   onClick,
   children,
 }: {
+  id: string;
+  panel: string;
   active: boolean;
   onClick: () => void;
-  children: string;
+  children: ReactNode;
 }) {
   return (
-    <li className={`nav-tab-header ${active ? 'active' : ''}`} role="presentation">
-      <button type="button" role="tab" aria-selected={active} className="hvrcenter tab-button" onClick={onClick}>
-        {children}
-      </button>
-    </li>
+    <button
+      type="button"
+      role="tab"
+      id={id}
+      aria-selected={active}
+      aria-controls={panel}
+      className="segmented-option"
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
