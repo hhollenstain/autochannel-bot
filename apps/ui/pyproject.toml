@@ -21,7 +21,7 @@ dependencies = [
 Homepage = "https://github.com/hhollenstain/autochannel-ui"
 
 [project.scripts]
-autochannel_ui = "autochannel.cli:main"
+autochannel_ui = "autochannel_ui.cli:main"
 
 [dependency-groups]
 dev = [
@@ -34,12 +34,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["autochannel"]
+packages = ["autochannel_ui"]
 
-# The DB package is a workspace member so the schema has a single home. When this
-# repo merges with autochannel-bot, the bot becomes another member depending on it.
-[tool.uv.workspace]
-members = ["packages/*"]
 
 [tool.uv.sources]
 autochannel-db = { workspace = true }

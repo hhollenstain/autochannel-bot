@@ -3,7 +3,7 @@ import requests
 from flask import session, request, abort
 from flask import current_app as app
 from requests_oauthlib import OAuth2Session
-from autochannel.lib import discordData
+from autochannel_ui.lib import discordData
 
 """
 Channel types:

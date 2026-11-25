@@ -8,10 +8,10 @@ import logging
 from flask import Blueprint, redirect, request, session
 from flask import current_app as app
 """App imports"""
-from autochannel.api import api_functions
-from autochannel.data import data_functions
-from autochannel.lib import discordData
-from autochannel.lib.auth import is_authenticated, get_managed_guild
+from autochannel_ui.api import api_functions
+from autochannel_ui.data import data_functions
+from autochannel_ui.lib import discordData
+from autochannel_ui.lib.auth import is_authenticated, get_managed_guild
 
 LOG = logging.getLogger(__name__)
 

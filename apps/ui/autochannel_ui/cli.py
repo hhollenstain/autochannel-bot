@@ -3,8 +3,8 @@ import logging
 import coloredlogs
 from flask import request
 from waitress import serve
-from autochannel.lib import utils
-from autochannel import create_app
+from autochannel_ui.lib import utils
+from autochannel_ui import create_app
 
 LOG = logging.getLogger(__name__)
 

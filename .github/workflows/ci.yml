@@ -4,72 +4,21 @@ on:
   push:
     branches: [master, main]
   pull_request:
-    branches: [master, main]
 
 jobs:
-  lint:
-    name: Lint and type check
+  bot:
+    name: Bot (lint, mypy, pytest)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.13", "3.14"]
-
+    defaults:
+      run:
+        working-directory: apps/bot
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Install dependencies
-        run: |
-          uv venv
-          uv pip install -e ".[dev]"
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      
-      - name: Run ruff format check
-        run: |
-          ruff format --check autochannel setup.py
-      
-      - name: Run ruff check
-        run: |
-          ruff check autochannel setup.py
-      
-      - name: Run mypy
-        run: |
-          mypy --package autochannel --strict
-
-  test:
-    name: Test with pytest
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.13", "3.14"]
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-      
-      - name: Install dependencies
-        run: |
-          uv venv
-          uv pip install -e ".[test]"
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      
-      - name: Run pytest
-        run: |
-          python -m pytest -v
-
+          python-version: "3.14"
+      - run: uv sync --frozen --package autochannel
+      - run: uv run --no-sync ruff format --check autochannel
+      - run: uv run --no-sync ruff check autochannel
+      - run: uv run --no-sync mypy --package autochannel --strict
+      - run: uv run --no-sync pytest -v

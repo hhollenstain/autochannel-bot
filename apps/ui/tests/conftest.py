@@ -8,8 +8,8 @@ os.environ.setdefault('AC_TOKEN', 'bot-token')
 
 import pytest
 
-from autochannel import create_app, db
-from autochannel.config import Config
+from autochannel_ui import create_app, db
+from autochannel_ui.config import Config
 from autochannel_db import Category, Channel, Guild
 
 GUILD_ID = '321048288574963722'

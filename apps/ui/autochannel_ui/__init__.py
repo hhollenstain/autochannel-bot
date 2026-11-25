@@ -3,7 +3,7 @@ from flask_compress import Compress
 from flask_sqlalchemy import SQLAlchemy
 from prometheus_flask_exporter import PrometheusMetrics
 """AC imports"""
-from autochannel.config import Config
+from autochannel_ui.config import Config
 from autochannel_db import Base
 
 # Models live in the shared autochannel-db package; Flask-SQLAlchemy only manages
@@ -21,10 +21,10 @@ def create_app(config_class=Config):
     if not app.testing:
         PrometheusMetrics(app)
 
-    from autochannel.api.routes import mod_api
-    from autochannel.auth.routes import mod_auth
-    from autochannel.errors.routes import mod_errors
-    from autochannel.frontend.routes import mod_frontend
+    from autochannel_ui.api.routes import mod_api
+    from autochannel_ui.auth.routes import mod_auth
+    from autochannel_ui.errors.routes import mod_errors
+    from autochannel_ui.frontend.routes import mod_frontend
 
     app.register_blueprint(mod_auth)
     app.register_blueprint(mod_api, url_prefix='/api')

@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy import select
-from autochannel import db
+from autochannel_ui import db
 from autochannel_db import Guild, Category
 
 LOG = logging.getLogger(__name__)
