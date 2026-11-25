@@ -21,7 +21,7 @@ const LABELS: Record<keyof CategorySettings, string> = {
   empty_count: 'Updated empty channel count',
 };
 
-/** What each setting means, shown under its label. */
+/** What each setting means, shown once above the category list. */
 const HELP = {
   enabled: {
     label: 'Enabled',
@@ -55,8 +55,18 @@ const HELP = {
   },
 } satisfies Record<keyof CategorySettings, { label: string; help: string; meta: string[] }>;
 
+const FIELDS: Record<Mode, (keyof CategorySettings)[]> = {
+  auto: ['enabled', 'prefix', 'channel_size', 'empty_count'],
+  custom: ['custom_enabled', 'custom_prefix'],
+};
+
+/** Show a filter box once the list is long enough that scanning it gets slow. */
+const FILTER_THRESHOLD = 6;
+
 export default function CategoryTable({ guildId, categories, mode, onUpdated }: Props) {
   const notify = useToast();
+  const guideId = useId();
+  const [query, setQuery] = useState('');
 
   async function save<K extends keyof CategorySettings>(
     category: Category,
@@ -84,40 +94,77 @@ export default function CategoryTable({ guildId, categories, mode, onUpdated }: 
     );
   }
 
+  const fields = FIELDS[mode];
+  const helpId = (field: keyof CategorySettings) => `${guideId}-${field}`;
+  const needle = query.trim().toLowerCase();
+  const visible = needle ? categories.filter((c) => c.name.toLowerCase().includes(needle)) : categories;
+
   return (
-    <div className="settings-list">
-      {categories.map((c) => (
-        <section key={c.id} className="setting-card" aria-labelledby={`category-${c.id}`}>
-          <header className="setting-card-header">
+    <>
+      {/* Each setting is explained once here rather than repeated for every category. */}
+      <dl className="settings-guide" aria-label="What each setting means">
+        {fields.map((field) => (
+          <div key={field} className="settings-guide-item" id={helpId(field)}>
+            <dt className="setting-label">{HELP[field].label}</dt>
+            <dd className="setting-help">{HELP[field].help}</dd>
+            <dd className="setting-meta">
+              {HELP[field].meta.map((m) => (
+                <span key={m}>{m}</span>
+              ))}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {categories.length >= FILTER_THRESHOLD && (
+        <div className="category-filter">
+          <input
+            type="search"
+            className="form-control"
+            placeholder="Filter categories"
+            aria-label="Filter categories"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <p aria-live="polite">
+            Showing {visible.length} of {categories.length} categories
+          </p>
+        </div>
+      )}
+
+      <div className={`category-list category-list-${mode}`}>
+        <div className="category-list-header" aria-hidden="true">
+          <span>Category</span>
+          {fields.map((field) => (
+            <span key={field}>{HELP[field].label}</span>
+          ))}
+        </div>
+        {visible.length === 0 && <p className="category-list-empty">No categories match “{query.trim()}”.</p>}
+        {visible.map((c) => (
+          <section key={c.id} className="category-row" aria-labelledby={`category-${c.id}`}>
             <h3 id={`category-${c.id}`}>{c.name}</h3>
-          </header>
-          {mode === 'auto' ? (
-            <>
-              <SettingRow field="enabled">
-                {(ids) => (
+            {mode === 'auto' ? (
+              <>
+                <Cell field="enabled">
                   <Toggle
-                    {...ids}
+                    describedBy={helpId('enabled')}
                     label={`${c.name} enabled`}
                     checked={c.enabled}
                     onChange={(v) => save(c, 'enabled', v)}
                   />
-                )}
-              </SettingRow>
-              <SettingRow field="prefix">
-                {(ids) => (
+                </Cell>
+                <Cell field="prefix">
                   <SettingInput
-                    {...ids}
+                    describedBy={helpId('prefix')}
                     label={`${c.name} prefix`}
                     value={c.prefix}
                     maxLength={100}
                     onApply={(v) => save(c, 'prefix', v)}
                   />
-                )}
-              </SettingRow>
-              <SettingRow field="channel_size">
-                {(ids) => (
+                </Cell>
+                <Cell field="channel_size">
                   <SettingInput
-                    {...ids}
+                    describedBy={helpId('channel_size')}
                     label={`${c.name} channel size`}
                     type="number"
                     value={c.channel_size}
@@ -125,12 +172,10 @@ export default function CategoryTable({ guildId, categories, mode, onUpdated }: 
                     max={99}
                     onApply={(v) => save(c, 'channel_size', Number(v))}
                   />
-                )}
-              </SettingRow>
-              <SettingRow field="empty_count">
-                {(ids) => (
+                </Cell>
+                <Cell field="empty_count">
                   <SettingInput
-                    {...ids}
+                    describedBy={helpId('empty_count')}
                     label={`${c.name} empty count`}
                     type="number"
                     value={c.empty_count}
@@ -138,71 +183,44 @@ export default function CategoryTable({ guildId, categories, mode, onUpdated }: 
                     max={10}
                     onApply={(v) => save(c, 'empty_count', Number(v))}
                   />
-                )}
-              </SettingRow>
-            </>
-          ) : (
-            <>
-              <SettingRow field="custom_enabled">
-                {(ids) => (
+                </Cell>
+              </>
+            ) : (
+              <>
+                <Cell field="custom_enabled">
                   <Toggle
-                    {...ids}
+                    describedBy={helpId('custom_enabled')}
                     label={`${c.name} custom channels enabled`}
                     checked={c.custom_enabled}
                     onChange={(v) => save(c, 'custom_enabled', v)}
                   />
-                )}
-              </SettingRow>
-              <SettingRow field="custom_prefix">
-                {(ids) => (
+                </Cell>
+                <Cell field="custom_prefix">
                   <SettingInput
-                    {...ids}
+                    describedBy={helpId('custom_prefix')}
                     label={`${c.name} custom prefix`}
                     value={c.custom_prefix}
                     maxLength={10}
                     onApply={(v) => save(c, 'custom_prefix', v)}
                   />
-                )}
-              </SettingRow>
-            </>
-          )}
-        </section>
-      ))}
-    </div>
+                </Cell>
+              </>
+            )}
+          </section>
+        ))}
+      </div>
+    </>
   );
 }
 
-interface ControlIds {
-  id: string;
-  describedBy: string;
-}
-
-function SettingRow({
-  field,
-  children,
-}: {
-  field: keyof CategorySettings;
-  children: (ids: ControlIds) => ReactNode;
-}) {
-  const id = useId();
-  const { label, help, meta } = HELP[field];
-
+/** One setting in a category row. Its small label only shows when the column header is hidden. */
+function Cell({ field, children }: { field: keyof CategorySettings; children: ReactNode }) {
   return (
-    <div className="setting-row">
-      <div className="setting-text">
-        <label className="setting-label" htmlFor={id}>
-          {label}
-        </label>
-        <p className="setting-help" id={`${id}-help`}>
-          {help}
-        </p>
-        <p className="setting-meta" id={`${id}-meta`}>
-          {meta.map((m) => (
-            <span key={m}>{m}</span>
-          ))}
-        </p>
-      </div>
-      <div className="setting-control">{children({ id, describedBy: `${id}-help ${id}-meta` })}</div>
+    <div className="category-cell">
+      <span className="category-cell-label" aria-hidden="true">
+        {HELP[field].label}
+      </span>
+      {children}
     </div>
   );
 }
@@ -212,12 +230,12 @@ function Spinner() {
 }
 
 function Toggle({
-  id,
   describedBy,
   label,
   checked,
   onChange,
-}: ControlIds & {
+}: {
+  describedBy: string;
   label: string;
   checked: boolean;
   onChange: (value: boolean) => Promise<boolean>;
@@ -226,9 +244,7 @@ function Toggle({
 
   return (
     <div className="form-check form-switch d-flex align-items-center gap-2 ps-0">
-      {busy && <Spinner />}
       <input
-        id={id}
         className="form-check-input"
         type="checkbox"
         role="switch"
@@ -243,12 +259,12 @@ function Toggle({
           setBusy(false);
         }}
       />
+      {busy && <Spinner />}
     </div>
   );
 }
 
 function SettingInput({
-  id,
   describedBy,
   label,
   value,
@@ -257,7 +273,8 @@ function SettingInput({
   max,
   maxLength,
   onApply,
-}: ControlIds & {
+}: {
+  describedBy: string;
   label: string;
   value: string | number;
   type?: 'text' | 'number';
@@ -282,7 +299,6 @@ function SettingInput({
   return (
     <form className="setting-form" onSubmit={submit}>
       <input
-        id={id}
         className="form-control"
         aria-label={label}
         aria-describedby={describedBy}

@@ -115,6 +115,22 @@ describe('App', () => {
     expect(screen.queryByRole('textbox', { name: 'Raids prefix' })).not.toBeInTheDocument();
   });
 
+  it('filters a long category list by name', async () => {
+    const names = ['Raids', 'Raid Planning', 'General', 'Gaming', 'Music', 'Events', 'AFK'];
+    const categories = names.map((name, i) => ({ ...CATEGORY, id: String(i), name }));
+    mockApi({
+      'GET /api/me': () => [200, ME],
+      [`GET ${guildUrl}`]: () => [200, { guild: GUILD, categories }],
+    });
+    renderAt(`/dashboard/${GUILD.id}`);
+
+    await userEvent.type(await screen.findByRole('searchbox', { name: 'Filter categories' }), 'raid');
+    expect(screen.getByRole('switch', { name: 'Raids enabled' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Raid Planning enabled' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'General enabled' })).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 2 of 7 categories')).toBeInTheDocument();
+  });
+
   it('offers the bot invite when it is not in the server', async () => {
     mockApi({
       'GET /api/me': () => [200, ME],

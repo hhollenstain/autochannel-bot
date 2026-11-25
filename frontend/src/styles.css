@@ -852,46 +852,125 @@ code {
   color: var(--ac-text-muted);
 }
 
-.settings-list {
+/* The settings are explained once in this guide; each category is then one compact row,
+ * so the page stays manageable with dozens of categories. */
+.settings-guide {
   display: grid;
-  gap: var(--ac-space-5);
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
-  align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--ac-space-4) var(--ac-space-5);
+  margin: 0 0 var(--ac-space-5);
+  padding: var(--ac-space-4) var(--ac-space-5);
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-surface-2);
 }
 
-.setting-card {
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ac-space-3) var(--ac-space-4);
+  margin-bottom: var(--ac-space-4);
+}
+
+.category-filter .form-control {
+  flex: 0 1 20rem;
+  min-width: 0;
+}
+
+.category-filter p {
+  margin: 0;
+  font-size: var(--ac-text-sm);
+  color: var(--ac-text-muted);
+}
+
+.category-list {
   border: 1px solid var(--ac-border);
   border-radius: var(--ac-radius-lg);
   background: var(--ac-surface);
   box-shadow: var(--ac-shadow);
 }
 
-.setting-card-header {
-  padding: var(--ac-space-4) var(--ac-space-5);
-  border-bottom: 1px solid var(--ac-border);
+.category-list-header {
+  display: none;
 }
 
-.setting-card-header h3 {
+.category-list-empty {
   margin: 0;
-  font-size: var(--ac-text-lg);
-  overflow-wrap: anywhere;
+  padding: var(--ac-space-5);
+  text-align: center;
+  color: var(--ac-text-muted);
 }
 
-.setting-row {
+.category-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ac-space-3) var(--ac-space-4);
-  padding: var(--ac-space-4) var(--ac-space-5);
+  align-items: flex-end;
+  gap: var(--ac-space-3) var(--ac-space-5);
+  padding: var(--ac-space-4);
 }
 
-.setting-row + .setting-row {
+.category-row + .category-row {
   border-top: 1px solid var(--ac-border);
 }
 
-.setting-text {
-  flex: 1 1 14rem;
+.category-row h3 {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: var(--ac-text-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.category-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ac-space-1);
   min-width: 0;
+}
+
+.category-cell-label {
+  font-size: var(--ac-text-xs);
+  font-weight: 600;
+  color: var(--ac-text-muted);
+}
+
+.category-cell .form-switch {
+  min-height: 2.375rem;
+  margin: 0;
+}
+
+@media (min-width: 1100px) {
+  .category-list-header,
+  .category-row {
+    display: grid;
+    align-items: center;
+    gap: var(--ac-space-4);
+    padding: var(--ac-space-3) var(--ac-space-5);
+  }
+
+  .category-list-auto .category-list-header,
+  .category-list-auto .category-row {
+    grid-template-columns: minmax(8rem, 1fr) 6rem 15rem 11.5rem 11.5rem;
+  }
+
+  .category-list-custom .category-list-header,
+  .category-list-custom .category-row {
+    grid-template-columns: minmax(8rem, 1fr) 8rem 15rem;
+  }
+
+  .category-list-header {
+    border-bottom: 1px solid var(--ac-border);
+    border-radius: var(--ac-radius-lg) var(--ac-radius-lg) 0 0;
+    background: var(--ac-surface-2);
+    font-size: var(--ac-text-xs);
+    font-weight: 600;
+    color: var(--ac-text-muted);
+  }
+
+  .category-cell-label {
+    display: none;
+  }
 }
 
 .setting-label {
@@ -918,12 +997,6 @@ code {
   font-weight: 500;
 }
 
-.setting-control {
-  display: flex;
-  align-items: center;
-  gap: var(--ac-space-2);
-}
-
 .setting-form {
   display: flex;
   gap: var(--ac-space-2);
@@ -938,17 +1011,12 @@ code {
 }
 
 @media (max-width: 575.98px) {
-  .setting-row {
+  .settings-guide {
     padding: var(--ac-space-4);
   }
 
-  .setting-card-header {
-    padding: var(--ac-space-3) var(--ac-space-4);
-  }
-
-  .setting-control,
-  .setting-form {
-    width: 100%;
+  .category-cell {
+    flex: 1 1 100%;
   }
 
   .setting-form .form-control,

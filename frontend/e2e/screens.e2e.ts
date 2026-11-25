@@ -3,7 +3,7 @@ import type { Page, Request } from '@playwright/test';
 import type { CategorySettings } from '../src/api';
 import { expect, test, THEMES, type ApiRoutes } from './fixtures';
 import { SCREENSHOT_DIR } from './global-setup';
-import { CATEGORIES, GUILD, GUILD_DETAIL, INVITE_URL, ME, OTHER_GUILD } from './mocks';
+import { CATEGORIES, GUILD, GUILD_DETAIL, INVITE_URL, MANY_CATEGORIES, ME, OTHER_GUILD } from './mocks';
 
 const reply = (status: number, body: unknown) => () => ({ status, body });
 
@@ -82,12 +82,16 @@ test.describe('logged in', () => {
     await expect(page.getByRole('spinbutton', { name: 'Raids channel size' })).toHaveValue('10');
     await expect(page.getByRole('spinbutton', { name: 'Raids empty count' })).toHaveValue('1');
     await expect(page.getByRole('button', { name: 'Save Raids prefix' })).toBeVisible();
-    // Help text, defaults and ranges are on the page without hovering.
-    const raids = page.getByRole('region', { name: 'Raids' });
-    await expect(raids.getByText('Must be unique for channels in this category')).toBeVisible();
-    await expect(raids.getByText('Default: AC!')).toBeVisible();
-    await expect(raids.getByText('Range: 0–99')).toBeVisible();
-    await expect(raids.getByText('Range: 1–10')).toBeVisible();
+    // Help text, defaults and ranges are on the page without hovering, shown once for all categories.
+    const guide = page.locator('.settings-guide');
+    await expect(guide.getByText('Must be unique for channels in this category')).toBeVisible();
+    await expect(guide.getByText('Default: AC!')).toBeVisible();
+    await expect(guide.getByText('Range: 0–99')).toBeVisible();
+    await expect(guide.getByText('Range: 1–10')).toBeVisible();
+    await expect(page.getByText('Range: 0–99')).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Raids' })).toBeVisible();
+    // The filter only appears for long lists.
+    await expect(page.getByRole('searchbox', { name: 'Filter categories' })).toHaveCount(0);
     await expect(page.locator('.alert-danger')).toHaveCount(0);
     await shoot('guild-categories');
   });
@@ -98,7 +102,7 @@ test.describe('logged in', () => {
     await expect(page.getByRole('tab', { name: 'Custom Channels' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('textbox', { name: 'Deliveries custom prefix' })).toHaveValue('DL!');
     await expect(page.getByRole('switch', { name: 'Deliveries custom channels enabled' })).toBeChecked();
-    await expect(page.getByRole('region', { name: 'Raids' }).getByText('Default: VC!')).toBeVisible();
+    await expect(page.getByText('Default: VC!')).toBeVisible();
 
     // Exercise the PATCH mock: the toggle saves and a toast confirms it.
     const toggle = page.getByRole('switch', { name: 'Raids custom channels enabled' });
@@ -145,6 +149,41 @@ test.describe('logged in', () => {
     release();
     await expect(save).toBeEnabled();
     await expect(input).toHaveValue('RD!');
+  });
+});
+
+test.describe('many categories', () => {
+  test.use({
+    api: {
+      ...loggedIn,
+      [`GET /api/guilds/${GUILD.id}`]: reply(200, { guild: GUILD, categories: MANY_CATEGORIES }),
+    },
+  });
+
+  test('guild categories with a long list', async ({ page, shoot }) => {
+    await page.goto(`/dashboard/${GUILD.id}`);
+    const rows = page.locator('.category-row');
+    await expect(rows).toHaveCount(MANY_CATEGORIES.length);
+    // Help is shown once, not once per category.
+    await expect(page.getByText('Must be unique for channels in this category')).toHaveCount(1);
+    await expect(page.getByText('Range: 0–99')).toHaveCount(1);
+    await shoot('guild-categories-many');
+
+    const filter = page.getByRole('searchbox', { name: 'Filter categories' });
+    await filter.fill('raid');
+    await expect(rows).toHaveCount(2);
+    await expect(page.getByRole('switch', { name: 'Raids enabled' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Raid Planning enabled' })).toBeVisible();
+    await expect(page.getByText(`Showing 2 of ${MANY_CATEGORIES.length} categories`)).toBeVisible();
+
+    // The filter is kept when switching tabs.
+    await page.getByRole('tab', { name: 'Custom Channels' }).click();
+    await expect(page.getByRole('textbox', { name: 'Raids custom prefix' })).toBeVisible();
+    await expect(rows).toHaveCount(2);
+
+    await filter.fill('nothing like this');
+    await expect(rows).toHaveCount(0);
+    await expect(page.getByText('No categories match')).toBeVisible();
   });
 });
 
