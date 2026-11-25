@@ -1,0 +1,42 @@
+services:
+  autochannel_ui:
+    image: hhollenstain/autochannel-ui:latest
+    restart: always
+    environment:
+      AC_TOKEN:
+      APP_ID:
+      FRONTEND_URL:
+      OAUTH2_CLIENT_ID:
+      OAUTH2_CLIENT_SECRET:
+      OAUTH2_REDIRECT_URI:
+      REDIS_URL:
+      SQLALCHEMY_DATABASE_URI:
+      TOKEN:
+    ports:
+      - '5100:5000'
+
+  # redis:
+  #   image: 'bitnami/redis:5.0'
+  #   environment:
+  #     # ALLOW_EMPTY_PASSWORD is recommended only for development.
+  #     - ALLOW_EMPTY_PASSWORD=yes
+  #     - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+  #   ports:
+  #     - '6379:6379'
+  #   volumes:
+  #     - 'redis_data:/home/hhollenstain/redis'
+  # postgresql:
+  #   image: 'bitnami/postgresql:11'
+  #   ports:
+  #     - '5432:5432'
+  #   volumes:
+  #     - 'postgresql_data:/home/hhollenstain/postgresql'
+  #   environment:
+  #     - 'ALLOW_EMPTY_PASSWORD=yes'
+
+
+volumes:
+  redis_data:
+    driver: local
+  postgresql_data:
+    driver: local

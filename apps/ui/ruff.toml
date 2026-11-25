@@ -1,0 +1,8 @@
+target-version = "py314"
+line-length = 100
+src = ["autochannel", "packages/autochannel-db/src", "tests"]
+extend-exclude = ["frontend", "packages/autochannel-db/src/autochannel_db/migrations/versions"]
+
+[lint]
+select = ["E9", "F"]
+ignore = ["E402", "F401", "F541"]

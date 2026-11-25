@@ -1,0 +1,8 @@
+Alembic migrations for the shared AutoChannel schema.
+
+    export SQLALCHEMY_DATABASE_URI=postgresql://...
+    alembic -c packages/autochannel-db/alembic.ini upgrade head
+    alembic -c packages/autochannel-db/alembic.ini revision --autogenerate -m "describe change"
+
+These were previously managed by Flask-Migrate in autochannel-ui; revision ids are
+unchanged, so existing databases continue from their current alembic_version.

@@ -1,0 +1,15 @@
+.env
+.env-dev
+.git
+.vscode
+.venv
+.uv-cache
+.npm-cache
+**/__pycache__
+**/node_modules
+frontend/dist
+tests
+docker-compose.yml
+Dockerfile
+*.egg-info
+autochannel/site.db

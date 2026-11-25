@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+dist/
+develop-eggs/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+.env
+cfg.cfg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# editor
+.vscode
+
+# python / uv
+.venv/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+
+# frontend
+node_modules/
+.npm-cache/
+frontend/dist/
+frontend/e2e/screenshots/
+frontend/e2e/test-results/
+frontend/playwright-report/
