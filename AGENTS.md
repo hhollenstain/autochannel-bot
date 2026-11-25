@@ -24,6 +24,11 @@ The root `pyproject.toml` is a virtual uv workspace (`members = ["apps/*", "pack
 with one `uv.lock`. Both Dockerfiles build with the repo root as context
 (`docker build -f apps/<app>/Dockerfile .`). `make help` at the root lists the shared targets.
 
+Releases ship both apps together: a GitHub Release runs `.github/workflows/release.yml`,
+which pushes both images with the release tag and then moves `:latest` on both. The root
+`docker-compose.yml` deploys one tag of both, running `alembic upgrade head` (the `migrate`
+service) before either app starts. CI runs every job on every PR, with no path filters.
+
 ## Project Structure (apps/bot)
 - `autochannel/` - Core bot code
   - `__init__.py` - Package metadata and version info

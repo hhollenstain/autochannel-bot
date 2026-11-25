@@ -33,3 +33,22 @@ an Alembic revision in the same PR:
 ```sh
 uv run alembic -c packages/autochannel-db/alembic.ini revision --autogenerate -m "..."
 ```
+
+## Releasing and deploying
+
+The bot and the dashboard are released **together**. Publishing a GitHub Release runs
+`.github/workflows/release.yml`, which:
+
+1. Builds both images from the release commit and pushes `autochannel-bot:<tag>` and
+   `autochannel-ui:<tag>` (GHCR, plus Docker Hub when `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`
+   are set).
+2. Only after both succeed, moves `:latest` on both images to those digests.
+
+Deploy both from the same tag with the root `docker-compose.yml`:
+
+```sh
+AUTOCHANNEL_TAG=<tag> docker compose up -d
+```
+
+Its `migrate` service runs `alembic upgrade head` from that tag first. `bot` and `ui` start
+only after it succeeds, so neither app runs against an older schema than its models.

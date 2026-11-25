@@ -30,8 +30,9 @@ build-web: ## Build the frontend
 migrate: ## alembic upgrade head
 	uv run alembic -c ../../packages/autochannel-db/alembic.ini upgrade head
 
-docker-compose: build-image ## Build the image and run it with secrets from 1Password
-	op run --env-file=.env-dev -- docker compose up
+docker-compose: ## Build both images and run the full stack (root docker-compose.yml) with secrets from 1Password
+	$(MAKE) -C ../.. build-images
+	op run --env-file=.env-dev -- env AUTOCHANNEL_TAG=local docker compose -f ../../docker-compose.yml up
 
 build-image: ## Build the Docker image
 	docker build -f Dockerfile -t $(IMAGE) ../..

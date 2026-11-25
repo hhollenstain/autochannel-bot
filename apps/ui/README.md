@@ -42,8 +42,8 @@ Browser tests (`frontend/e2e/`):
 For local OAuth via the Vite server set `FRONTEND_URL=http://localhost:5173` so the API
 redirects back to it after login.
 
-`make docker-compose` builds the image (frontend is compiled in a Node build stage) and
-runs it with secrets from 1Password.
+`make docker-compose` builds both images (the bot and this one) and runs the root
+`docker-compose.yml` (migrate, bot, ui) with secrets from 1Password.
 
 ## Migrations
 
