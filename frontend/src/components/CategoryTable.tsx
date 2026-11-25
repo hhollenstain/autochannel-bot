@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError, type Category, type CategorySettings } from '../api';
 import { useToast } from '../toasts';
 import { CheckIcon } from './icons';
@@ -21,6 +21,40 @@ const LABELS: Record<keyof CategorySettings, string> = {
   empty_count: 'Updated empty channel count',
 };
 
+/** What each setting means, shown under its label. */
+const HELP = {
+  enabled: {
+    label: 'Enabled',
+    help: 'Auto-chan creates and cleans up voice channels in this category.',
+    meta: ['Default: Off'],
+  },
+  prefix: {
+    label: 'Prefix',
+    help: 'Start of each created channel name. Must be unique for channels in this category.',
+    meta: ['Default: AC!', 'Up to 100 characters'],
+  },
+  channel_size: {
+    label: 'Channel size',
+    help: 'How many users can join each created channel. 0 means unlimited.',
+    meta: ['Default: 10', 'Range: 0–99'],
+  },
+  empty_count: {
+    label: 'Empty count',
+    help: 'How many empty channels Auto-chan keeps open in this category.',
+    meta: ['Default: 1', 'Range: 1–10'],
+  },
+  custom_enabled: {
+    label: 'Custom channels',
+    help: 'Let members create their own named channels in this category.',
+    meta: ['Default: Off'],
+  },
+  custom_prefix: {
+    label: 'Custom prefix',
+    help: 'Start of each custom channel name. Must be unique for channels in this category.',
+    meta: ['Default: VC!', 'Up to 10 characters'],
+  },
+} satisfies Record<keyof CategorySettings, { label: string; help: string; meta: string[] }>;
+
 export default function CategoryTable({ guildId, categories, mode, onUpdated }: Props) {
   const notify = useToast();
 
@@ -42,112 +76,148 @@ export default function CategoryTable({ guildId, categories, mode, onUpdated }: 
   }
 
   if (categories.length === 0) {
-    return <p className="text-center mt-3">This server has no categories yet.</p>;
+    return (
+      <div className="state-panel surface">
+        <h2>No categories yet</h2>
+        <p className="mb-0">Create a category in Discord, then reload this page to set it up.</p>
+      </div>
+    );
   }
 
   return (
-    <table className="table discord-dark-col">
-      <thead>
-        <tr className="text-center">
-          <th title="Name of Categories in your server">Name</th>
+    <div className="settings-list">
+      {categories.map((c) => (
+        <section key={c.id} className="setting-card" aria-labelledby={`category-${c.id}`}>
+          <header className="setting-card-header">
+            <h3 id={`category-${c.id}`}>{c.name}</h3>
+          </header>
           {mode === 'auto' ? (
             <>
-              <th title="Toggle to enable or disable the autochannel bot in this category (default Off)">
-                Enabled
-              </th>
-              <th title="The prefix of the created channel, must be unique for channels in this category (default AC!)">
-                Prefix
-              </th>
-              <th title="Number of users that can be in each channel, 0-99 where 0 is unlimited (default 10)">
-                Channel Size
-              </th>
-              <th title="Number of empty channels AutoChannel keeps in category (default 1)">Empty Count</th>
-            </>
-          ) : (
-            <>
-              <th title="Toggle to enable or disable custom channel creation for this category (default Off)">
-                Enabled
-              </th>
-              <th title="The prefix of the created channel, must be unique for channels in this category (default VC!)">
-                Custom Prefix
-              </th>
-            </>
-          )}
-        </tr>
-      </thead>
-      <tbody>
-        {categories.map((c) => (
-          <tr key={c.id}>
-            <td className="text-center align-middle">{c.name}</td>
-            {mode === 'auto' ? (
-              <>
-                <td className="text-center align-middle">
-                  <Toggle label={`${c.name} enabled`} checked={c.enabled} onChange={(v) => save(c, 'enabled', v)} />
-                </td>
-                <td>
+              <SettingRow field="enabled">
+                {(ids) => (
+                  <Toggle
+                    {...ids}
+                    label={`${c.name} enabled`}
+                    checked={c.enabled}
+                    onChange={(v) => save(c, 'enabled', v)}
+                  />
+                )}
+              </SettingRow>
+              <SettingRow field="prefix">
+                {(ids) => (
                   <SettingInput
+                    {...ids}
                     label={`${c.name} prefix`}
                     value={c.prefix}
                     maxLength={100}
-                    width={200}
                     onApply={(v) => save(c, 'prefix', v)}
                   />
-                </td>
-                <td>
+                )}
+              </SettingRow>
+              <SettingRow field="channel_size">
+                {(ids) => (
                   <SettingInput
+                    {...ids}
                     label={`${c.name} channel size`}
                     type="number"
                     value={c.channel_size}
                     min={0}
                     max={99}
-                    width={110}
                     onApply={(v) => save(c, 'channel_size', Number(v))}
                   />
-                </td>
-                <td>
+                )}
+              </SettingRow>
+              <SettingRow field="empty_count">
+                {(ids) => (
                   <SettingInput
+                    {...ids}
                     label={`${c.name} empty count`}
                     type="number"
                     value={c.empty_count}
                     min={1}
                     max={10}
-                    width={110}
                     onApply={(v) => save(c, 'empty_count', Number(v))}
                   />
-                </td>
-              </>
-            ) : (
-              <>
-                <td className="text-center align-middle">
+                )}
+              </SettingRow>
+            </>
+          ) : (
+            <>
+              <SettingRow field="custom_enabled">
+                {(ids) => (
                   <Toggle
+                    {...ids}
                     label={`${c.name} custom channels enabled`}
                     checked={c.custom_enabled}
                     onChange={(v) => save(c, 'custom_enabled', v)}
                   />
-                </td>
-                <td>
+                )}
+              </SettingRow>
+              <SettingRow field="custom_prefix">
+                {(ids) => (
                   <SettingInput
+                    {...ids}
                     label={`${c.name} custom prefix`}
                     value={c.custom_prefix}
                     maxLength={10}
-                    width={200}
                     onApply={(v) => save(c, 'custom_prefix', v)}
                   />
-                </td>
-              </>
-            )}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+                )}
+              </SettingRow>
+            </>
+          )}
+        </section>
+      ))}
+    </div>
   );
 }
 
+interface ControlIds {
+  id: string;
+  describedBy: string;
+}
+
+function SettingRow({
+  field,
+  children,
+}: {
+  field: keyof CategorySettings;
+  children: (ids: ControlIds) => ReactNode;
+}) {
+  const id = useId();
+  const { label, help, meta } = HELP[field];
+
+  return (
+    <div className="setting-row">
+      <div className="setting-text">
+        <label className="setting-label" htmlFor={id}>
+          {label}
+        </label>
+        <p className="setting-help" id={`${id}-help`}>
+          {help}
+        </p>
+        <p className="setting-meta" id={`${id}-meta`}>
+          {meta.map((m) => (
+            <span key={m}>{m}</span>
+          ))}
+        </p>
+      </div>
+      <div className="setting-control">{children({ id, describedBy: `${id}-help ${id}-meta` })}</div>
+    </div>
+  );
+}
+
+function Spinner() {
+  return <span className="spinner-border spinner-border-sm" aria-hidden="true" />;
+}
+
 function Toggle({
+  id,
+  describedBy,
   label,
   checked,
   onChange,
-}: {
+}: ControlIds & {
   label: string;
   checked: boolean;
   onChange: (value: boolean) => Promise<boolean>;
@@ -155,12 +225,16 @@ function Toggle({
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="form-check form-switch d-inline-block">
+    <div className="form-check form-switch d-flex align-items-center gap-2 ps-0">
+      {busy && <Spinner />}
       <input
+        id={id}
         className="form-check-input"
         type="checkbox"
         role="switch"
         aria-label={label}
+        aria-describedby={describedBy}
+        aria-busy={busy}
         checked={checked}
         disabled={busy}
         onChange={async (e) => {
@@ -174,22 +248,22 @@ function Toggle({
 }
 
 function SettingInput({
+  id,
+  describedBy,
   label,
   value,
   type = 'text',
   min,
   max,
   maxLength,
-  width,
   onApply,
-}: {
+}: ControlIds & {
   label: string;
   value: string | number;
   type?: 'text' | 'number';
   min?: number;
   max?: number;
   maxLength?: number;
-  width: number;
   onApply: (value: string) => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState(String(value));
@@ -206,10 +280,12 @@ function SettingInput({
   }
 
   return (
-    <form className="input-group mx-auto" style={{ width }} onSubmit={submit}>
+    <form className="setting-form" onSubmit={submit}>
       <input
+        id={id}
         className="form-control"
         aria-label={label}
+        aria-describedby={describedBy}
         type={type}
         value={draft}
         min={min}
@@ -218,8 +294,15 @@ function SettingInput({
         required
         onChange={(e) => setDraft(e.target.value)}
       />
-      <button type="submit" className="btn btn-primary" disabled={busy} aria-label={`Save ${label}`}>
-        <CheckIcon />
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={busy}
+        aria-busy={busy}
+        aria-label={`Save ${label}`}
+      >
+        {busy ? <Spinner /> : <CheckIcon />}
+        Save
       </button>
     </form>
   );

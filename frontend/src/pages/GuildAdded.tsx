@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router';
-import GuildHeader from '../components/GuildHeader';
 import Instructions from '../components/Instructions';
+import PageHeader from '../components/PageHeader';
 import { useTitle } from '../hooks';
 import { useSession } from '../session';
 import { RequireLogin } from './RequireLogin';
@@ -13,13 +13,16 @@ export default function GuildAdded() {
 
   return (
     <RequireLogin>
-      <GuildHeader icon={guild?.icon}>{guild?.name}</GuildHeader>
-      <h4 className="text-center my-3">
-        AutoChannel bot was added:{' '}
-        <Link className="btn btn-primary" to={`/dashboard/${guildId}`}>
-          Dashboard
-        </Link>
-      </h4>
+      <PageHeader
+        icon={guild?.icon}
+        title={guild?.name ?? 'Server'}
+        description="AutoChannel bot was added. Next, choose its settings for each category."
+        actions={
+          <Link className="btn btn-primary btn-lg" to={`/dashboard/${guildId}`}>
+            Dashboard
+          </Link>
+        }
+      />
       <Instructions />
     </RequireLogin>
   );

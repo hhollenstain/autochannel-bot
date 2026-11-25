@@ -7,9 +7,10 @@ export function RequireLogin({ children }: { children: ReactNode }) {
   if (me === undefined) return <Loading />;
   if (me === null) {
     return (
-      <div className="text-center mt-5">
-        <h3>Log in with Discord to manage your servers</h3>
-        <a className="btn btn-primary mt-3" href="/login">
+      <div className="state-panel surface">
+        <h1 className="h3">Log in with Discord to manage your servers</h1>
+        <p>Auto-chan uses your Discord account to find the servers you can manage.</p>
+        <a className="btn btn-primary btn-lg" href="/login">
           Login
         </a>
       </div>
@@ -20,7 +21,7 @@ export function RequireLogin({ children }: { children: ReactNode }) {
 
 export function Loading() {
   return (
-    <div className="text-center mt-5">
+    <div className="loading">
       <div className="spinner-border" role="status">
         <span className="visually-hidden">Loading...</span>
       </div>

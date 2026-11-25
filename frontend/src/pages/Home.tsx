@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import GuildHeader from '../components/GuildHeader';
+import PageHeader from '../components/PageHeader';
 import { useTitle } from '../hooks';
 
 export default function Home() {
@@ -7,15 +7,25 @@ export default function Home() {
 
   return (
     <>
-      <GuildHeader>
-        Welcome to AutoChannel{' '}
-        <Link to="/dashboard" className="btn btn-primary">
-          Add Auto-chan!
-        </Link>
-      </GuildHeader>
-      <div className="row">
-        <div className="col-md-6 mx-auto">
-          <h4>What is AutoChannel?</h4>
+      <PageHeader
+        title="Welcome to AutoChannel"
+        description="Voice channels that open and close on their own, so your server always has a free room."
+        actions={
+          <>
+            <Link to="/dashboard" className="btn btn-primary btn-lg">
+              Add Auto-chan!
+            </Link>
+            <Link to="/instructions" className="btn btn-secondary btn-lg">
+              How it works
+            </Link>
+          </>
+        }
+      />
+      <div className="home-grid">
+        <section className="surface prose" aria-labelledby="home-what">
+          <h2 id="home-what" className="section-title">
+            What is AutoChannel?
+          </h2>
           <p>
             AutoChannel is here for Admins/moderators/channel managers to facilitate managing voice
             channels. This can help you moderate small to large discord servers with over 1 million+
@@ -29,20 +39,18 @@ export default function Home() {
             means you will no longer have excess channels and not have to scroll endless looking for
             groups or see how many rooms are occupied.
           </p>
-          <p>
+          <p className="mb-0">
             Auto-chan also checks to make sure you don't have too many channels in your categories.
             If people leave it will automatically clean up empty channels.
           </p>
-        </div>
-        <div className="col-md-6 mx-auto">
-          <h4>Auto-chan dashboards</h4>
-          <p>
-            <img className="img-fluid" width={400} src="/img/autochannels-guild.png" alt="AutoChannel settings" />
-          </p>
-          <p>
-            <img className="img-fluid" width={400} src="/img/autochannel-custom.png" alt="Custom channel settings" />
-          </p>
-        </div>
+        </section>
+        <section className="surface" aria-labelledby="home-dashboards">
+          <h2 id="home-dashboards" className="section-title">
+            Auto-chan dashboards
+          </h2>
+          <img className="screenshot" width={560} src="/img/autochannels-guild.png" alt="AutoChannel settings" />
+          <img className="screenshot" width={560} src="/img/autochannel-custom.png" alt="Custom channel settings" />
+        </section>
       </div>
     </>
   );

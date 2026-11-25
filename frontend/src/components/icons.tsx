@@ -1,23 +1,81 @@
-// Inline replacements for the few Font Awesome glyphs the old templates used.
+import type { ReactNode } from 'react';
 
-export function UserIcon() {
+// Small inline SVG icons. All are decorative; give the surrounding control its name.
+
+function Svg({ children, viewBox = '0 0 24 24' }: { children: ReactNode; viewBox?: string }) {
   return (
-    <svg className="icon" viewBox="0 0 448 512" width="1em" height="1em" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M224 256a128 128 0 1 0 0-256 128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3 0 498.7 13.3 512 29.7 512h388.6c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304h-91.4z"
-      />
+    <svg className="icon" viewBox={viewBox} width="1em" height="1em" aria-hidden="true" focusable="false">
+      {children}
     </svg>
   );
 }
 
+const stroke = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+} as const;
+
 export function CheckIcon() {
   return (
-    <svg className="icon" viewBox="0 0 448 512" width="1em" height="1em" aria-hidden="true">
+    <Svg>
+      <path {...stroke} d="M20 6 9 17l-5-5" />
+    </Svg>
+  );
+}
+
+export function SunIcon() {
+  return (
+    <Svg>
+      <circle {...stroke} cx="12" cy="12" r="4" />
       <path
-        fill="currentColor"
-        d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7l233.4-233.3c12.5-12.5 32.8-12.5 45.3 0z"
+        {...stroke}
+        d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
       />
-    </svg>
+    </Svg>
+  );
+}
+
+export function MoonIcon() {
+  return (
+    <Svg>
+      <path {...stroke} d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </Svg>
+  );
+}
+
+export function ChevronRightIcon() {
+  return (
+    <Svg>
+      <path {...stroke} d="m9 18 6-6-6-6" />
+    </Svg>
+  );
+}
+
+export function ChevronDownIcon() {
+  return (
+    <Svg>
+      <path {...stroke} d="m6 9 6 6 6-6" />
+    </Svg>
+  );
+}
+
+export function ArrowLeftIcon() {
+  return (
+    <Svg>
+      <path {...stroke} d="M19 12H5M12 19l-7-7 7-7" />
+    </Svg>
+  );
+}
+
+export function ServerIcon() {
+  return (
+    <Svg>
+      <rect {...stroke} x="3" y="4" width="18" height="7" rx="2" />
+      <rect {...stroke} x="3" y="13" width="18" height="7" rx="2" />
+      <path {...stroke} d="M7 7.5h.01M7 16.5h.01" />
+    </Svg>
   );
 }
