@@ -19,21 +19,21 @@ directly instead of keeping its own copy of `models.py` in sync.
 ## Development
 
 Requires Python 3.14 + [uv](https://docs.astral.sh/uv/) and Node 22+. Recipes live in the
-`justfile`.
+`Makefile` (`make help` lists them).
 
 ```sh
-just install          # uv sync + npm ci
-just api              # Flask API on :5000 (needs the env vars from .env.example)
-just web              # Vite dev server on :5173, proxies /api, /login, /logout to :5000
-just test             # pytest + frontend typecheck/tests
-just e2e              # Playwright browser tests with mocked /api; screenshots → frontend/e2e/screenshots/
-just migrate          # alembic upgrade head against $SQLALCHEMY_DATABASE_URI
+make install          # uv sync + npm ci
+make api              # Flask API on :5000 (needs the env vars from .env.example)
+make web              # Vite dev server on :5173, proxies /api, /login, /logout to :5000
+make test             # pytest + frontend typecheck/tests
+make e2e              # Playwright browser tests with mocked /api; screenshots → frontend/e2e/screenshots/
+make migrate          # alembic upgrade head against $SQLALCHEMY_DATABASE_URI
 ```
 
 Browser tests (`frontend/e2e/`):
 
 - Install Chromium once: `cd frontend && npx playwright install chromium`.
-- `just e2e` (or `cd frontend && npm run test:e2e`) builds the SPA, serves it with
+- `make e2e` (or `cd frontend && npm run test:e2e`) builds the SPA, serves it with
   `vite preview` on :4173, and drives it in headless Chromium. Every `/api/*` call is mocked
   in the browser and outside requests (Google Fonts) are stubbed, so no API on :5000, Discord
   login, database or internet access is needed. Any unmocked request fails the test.
@@ -43,7 +43,7 @@ Browser tests (`frontend/e2e/`):
 For local OAuth via the Vite server set `FRONTEND_URL=http://localhost:5173` so the API
 redirects back to it after login.
 
-`just docker-compose` builds the image (frontend is compiled in a Node build stage) and
+`make docker-compose` builds the image (frontend is compiled in a Node build stage) and
 runs it with secrets from 1Password.
 
 ## Migrations
