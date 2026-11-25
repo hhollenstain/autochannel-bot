@@ -5,59 +5,62 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import Any
+import time
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 from profanityfilter import ProfanityFilter
+from sqlalchemy import delete, select
+from sqlalchemy.orm import selectinload
 
 from autochannel.autochannel import AutoChannel
 from autochannel.data.models import Category, Channel
+from autochannel.lib.maintenance import (
+    CategorySnapshot,
+    channels_to_create,
+    channels_to_delete,
+    next_suffixes,
+)
 from autochannel.lib.metrics import (
     command_metrics_counter,
     queue_stats_gauge,
     task_metrics_counter,
 )
-from autochannel.lib.utils import missing_numbers
 
 LOG = logging.getLogger(__name__)
 pf = ProfanityFilter(no_word_boundaries=True)
+
+# How long a freshly created channel is counted as "pending" while we wait for
+# the gateway CHANNEL_CREATE event to add it to the cache.
+PENDING_CHANNEL_TTL: float = 30.0
+TIDY_REASON = "Auto-chan keeping a tidy house"
 
 
 class ACMissingChannel(commands.CommandError):
     """Custom exception for missing channel errors."""
 
-    pass
+
+class ACUnknownCategory(app_commands.AppCommandError):
+    """Raised when ``/vc`` is given a category that does not exist."""
 
 
-class ACUnknownCategory(commands.CommandError):
-    """Custom exception for unknown category errors."""
-
-    pass
+class ACDisabledCustomCategory(app_commands.AppCommandError):
+    """Raised when ``/vc`` targets a category with custom channels disabled."""
 
 
-class ACDisabledCustomCategory(commands.CommandError):
-    """Custom exception for disabled custom voice category."""
-
-    pass
-
-
-class VCProfaneWordused(commands.CommandError):
-    """Custom exception for profane word usage."""
-
-    pass
+class VCProfaneWordused(app_commands.AppCommandError):
+    """Raised when a custom channel name contains profanity."""
 
 
 class AutoChannels(commands.Cog):
     """Cog for managing automatic voice channel creation and deletion.
 
-    This cog handles the automatic creation and deletion of voice channels based
-    on configuration stored in the database. It uses a queue-based system for
-    batch processing of channel operations.
-
-    Args:
-        autochannel: The AutoChannel bot instance.
+    Every category the bot manages is kept at ``empty_count`` empty auto
+    channels. Voice state changes and ``/sync`` enqueue a category for
+    reconciliation; a single background worker processes the queue serially so
+    Discord rate limits are respected and concurrent events cannot race each
+    other into creating or deleting too many channels.
     """
 
     def __init__(self, autochannel: AutoChannel) -> None:
@@ -67,381 +70,279 @@ class AutoChannels(commands.Cog):
             autochannel: The AutoChannel bot instance.
         """
         self.autochannel = autochannel
-        self.stats = autochannel.stats
-        self.queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
-        self.next = asyncio.Event()
+        self.queue: asyncio.Queue[discord.CategoryChannel] = asyncio.Queue()
+        self._queued_categories: set[int] = set()
+        # channel id -> (category id, monotonic creation time)
+        self._pending_channels: dict[int, tuple[int, float]] = {}
+        self._tasks: list[asyncio.Task[None]] = []
 
     async def cog_load(self) -> None:
-        loop = asyncio.get_running_loop()
-        loop.create_task(self.queue_loop())
-        loop.create_task(self.loop_stats())
+        """Start the queue worker and queue metrics background tasks."""
+        self._tasks = [
+            asyncio.create_task(self.queue_loop(), name="autochannels-queue"),
+            asyncio.create_task(self.loop_stats(), name="autochannels-stats"),
+        ]
+
+    async def cog_unload(self) -> None:
+        """Cancel the background tasks started in :meth:`cog_load`."""
+        for task in self._tasks:
+            task.cancel()
+        self._tasks.clear()
 
     async def loop_stats(self) -> None:
         """Background task to track event queue size and update metrics."""
         while not self.autochannel.is_closed():
-            LOG.debug(f"UPDATING QUEUE STATS {self.queue.qsize()}")
             queue_stats_gauge(self.queue.qsize())
             await asyncio.sleep(3)
 
     async def queue_loop(self) -> None:
-        """Background task that processes queued channel operations."""
+        """Background worker that reconciles queued categories one at a time."""
         await self.autochannel.wait_until_ready()
 
         while not self.autochannel.is_closed():
-            LOG.info(f"QUEUE SIZE: {self.queue.qsize()}")
-            await asyncio.sleep(0.25)
-
-            task = await self.queue.get()
-
-            if not task.get("type"):
-                self.autochannel.loop.call_soon_threadsafe(self.next.set)
-                continue
-
-            LOG.info(f"Running queue Task: {task}")
+            cat = await self.queue.get()
+            # Allow new events to re-queue this category while it is processed.
+            self._queued_categories.discard(cat.id)
             try:
-                if task["type"] == "ac_create_channel":
-                    await self.ac_create_channel(
-                        task["cat"],
-                        guild=task["guild"],
-                    )
+                current = cat.guild.get_channel(cat.id)
+                if isinstance(current, discord.CategoryChannel):
+                    await self.ac_reconcile_category(current)
+            except Exception:
+                LOG.exception("Failed to reconcile category %s in %s", cat.id, cat.guild.name)
+            finally:
+                self.queue.task_done()
 
-                if task["type"] == "ac_delete_channel":
-                    await self.ac_delete_channel(
-                        task["cat"],
-                        guild=task["guild"],
-                        force=task["force"],
-                    )
-
-                if task["type"] == "ac_prefix_sync":
-                    await self.ac_prefix_sync(
-                        task["channel"],
-                        task["db_cat"],
-                        guild=task["guild"],
-                    )
-
-            except Exception as e:
-                LOG.error(e)
-
-            self.autochannel.loop.call_soon_threadsafe(self.next.set)
-            await self.next.wait()
-
-    @task_metrics_counter
-    async def ac_delete_channel(
-        self, cat: discord.CategoryChannel, force: bool, **kwargs: Any
-    ) -> None:
-        """_summary_
+    def enqueue_category(self, cat: discord.CategoryChannel) -> None:
+        """Queue a category for reconciliation unless it is already queued.
 
         Args:
-            cat (discord.CategoryChannel): _description_
-            force (bool): _description_
+            cat: The category to reconcile.
         """
-        with self.autochannel._db.transaction() as session:
-            category = session.query(Category).get(cat.id)
-        if category is None:
+        if cat.id in self._queued_categories:
             return
-        db_channel_list_id = category.get_channels()
-        if force:
-            auto_channels = [
-                channel for channel in cat.voice_channels if channel.id in db_channel_list_id
-            ]
-            highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
-            if highest_empty_channel is None:
-                return
-            LOG.debug(f"force deleting auto-channel: {highest_empty_channel.name}")
-            await highest_empty_channel.delete(reason="Auto-chan keeping a tidy house")
-        else:
-            auto_channels = [
-                channel
-                for channel in cat.voice_channels
-                if channel.id in db_channel_list_id and len(channel.members) < 1
-            ]
-            LOG.debug(f"empty autochannels for {cat.name}: {auto_channels}")
-            empty_channel_count = len(auto_channels)
-            if empty_channel_count > category.empty_count:
-                highest_empty_channel = self.ac_db_highest_empty_channel(auto_channels)
-                if highest_empty_channel is None:
-                    return
-                LOG.debug(f"deleting auto-channel: {highest_empty_channel.name}")
-                await highest_empty_channel.delete(reason="Auto-chan keeping a tidy house")
-            else:
-                LOG.debug(f"GUILD: {cat.guild.name} CAT: {cat.name} : No more channels to clean up")
+        self._queued_categories.add(cat.id)
+        LOG.debug("Queueing reconcile for GUILD: %s CAT: %s", cat.guild.name, cat.name)
+        self.queue.put_nowait(cat)
 
-    @task_metrics_counter
-    async def ac_create_channel(
-        self, cat: discord.CategoryChannel, **kwargs: Any
-    ) -> discord.VoiceChannel | None:
-        """Create an auto voice channel if fewer than max empty channels exist.
+    def load_category(self, cat_id: int) -> CategorySnapshot | None:
+        """Load a category's configuration and tracked channels from the database.
 
         Args:
-            cat: The voice channel category.
+            cat_id: Discord category ID.
 
         Returns:
-            The created voice channel or None if not needed.
+            A detached snapshot, or None if the category is not configured.
         """
-        with self.autochannel._db.transaction() as session:
-            db_cat = session.query(Category).get(cat.id)
-        if db_cat is None:
-            return None
-        db_channel_list_id = db_cat.get_channels()
-        auto_channels = [
-            channel for channel in cat.voice_channels if channel.id in db_channel_list_id
-        ]
-        empty_channel_list = [channel for channel in auto_channels if len(channel.members) < 1]
-        """ need a list of empty channels to decide whatt to clean up """
-        empty_channel_count = len(empty_channel_list)
-        if empty_channel_count < db_cat.empty_count:
-            channel_suffix = self.ac_db_channel_number(db_cat)
-            LOG.debug(f" Channel created {db_cat.prefix}")
-            position = channel_suffix + len(cat.text_channels)
-            chan_name = f"{db_cat.prefix} - {channel_suffix}"
-            created_channel = await cat.create_voice_channel(
-                chan_name, position=position, user_limit=db_cat.channel_size
-            )
-            LOG.debug(
-                "CHANNEL OBJECT CREATE => Channel(id=%s, cat_id=%s, type=voice)",
-                created_channel.id,
-                cat.id,
-            )
-            chan_id_add = Channel(
-                id=created_channel.id, cat_id=cat.id, chan_type="voice", num_suffix=channel_suffix
-            )
-            self.autochannel.session.add(chan_id_add)
-            self.autochannel.session.commit()
+        with self.autochannel.db.transaction() as session:
+            category = session.get(Category, cat_id, options=[selectinload(Category.channels)])
+            return None if category is None else CategorySnapshot.from_model(category)
 
-        else:
-            LOG.debug("Skipping channel AC create due to no longer needed")
-            return None
+    def load_categories(self, guild_id: int | None = None) -> dict[int, CategorySnapshot]:
+        """Load every configured category, optionally limited to one guild.
 
-        return created_channel
+        Args:
+            guild_id: Restrict to this guild, or None for all guilds.
+
+        Returns:
+            Mapping of category ID to snapshot.
+        """
+        stmt = select(Category).options(selectinload(Category.channels))
+        if guild_id is not None:
+            stmt = stmt.where(Category.guild_id == guild_id)
+        with self.autochannel.db.transaction() as session:
+            return {
+                category.id: CategorySnapshot.from_model(category)
+                for category in session.scalars(stmt)
+            }
+
+    def track_channel(self, channel_id: int, cat_id: int, suffix: int) -> None:
+        """Record a newly created auto channel in the database.
+
+        Args:
+            channel_id: Discord channel ID.
+            cat_id: Discord category ID.
+            suffix: Numeric suffix assigned to the channel.
+        """
+        with self.autochannel.db.transaction() as session:
+            session.add(Channel(id=channel_id, cat_id=cat_id, chan_type="voice", num_suffix=suffix))
+
+    def untrack_channels(self, channel_ids: list[int]) -> None:
+        """Remove auto channel rows from the database.
+
+        Args:
+            channel_ids: Discord channel IDs to forget.
+        """
+        if not channel_ids:
+            return
+        with self.autochannel.db.transaction() as session:
+            session.execute(delete(Channel).where(Channel.id.in_(channel_ids)))
+
+    def pending_channel_count(self, cat: discord.CategoryChannel) -> int:
+        """Count channels we created that are not yet visible in the cache.
+
+        Entries are dropped once the channel shows up in the cache or after
+        :data:`PENDING_CHANNEL_TTL` seconds.
+
+        Args:
+            cat: The category to count pending channels for.
+
+        Returns:
+            Number of pending (and therefore empty) channels in the category.
+        """
+        now = time.monotonic()
+        count = 0
+        for channel_id, (cat_id, created) in list(self._pending_channels.items()):
+            if cat.guild.get_channel(channel_id) is not None or now - created > PENDING_CHANNEL_TTL:
+                del self._pending_channels[channel_id]
+            elif cat_id == cat.id:
+                count += 1
+        return count
+
+    @task_metrics_counter
+    async def ac_reconcile_category(self, cat: discord.CategoryChannel) -> None:
+        """Bring a category to its configured number of empty auto channels.
+
+        Creates channels when there are too few empty ones, deletes the
+        highest-numbered empty channels when there are too many (all of them
+        when the category is disabled) and renames channels whose prefix is out
+        of date.
+
+        Args:
+            cat: The category to reconcile.
+        """
+        snapshot = self.load_category(cat.id)
+        if snapshot is None:
+            return
+
+        tracked = [channel for channel in cat.voice_channels if channel.id in snapshot.channels]
+        empty = [channel for channel in tracked if not channel.members]
+        pending = self.pending_channel_count(cat)
+        target = snapshot.target_empty
+
+        to_delete = channels_to_delete(
+            [channel.id for channel in empty], snapshot.channels, target, pending
+        )
+        for channel_id in to_delete:
+            surplus = cat.guild.get_channel(channel_id)
+            # Re-check: a member may have joined while earlier deletes were awaited.
+            if not isinstance(surplus, discord.VoiceChannel) or surplus.members:
+                continue
+            LOG.debug("Deleting auto-channel %s in %s", surplus.name, cat.guild.name)
+            with contextlib.suppress(discord.NotFound):
+                await surplus.delete(reason=TIDY_REASON)
+            self.untrack_channels([channel_id])
+
+        missing = channels_to_create(len(empty) + pending, target)
+        for suffix in next_suffixes(snapshot.channels.values(), missing):
+            await self.create_auto_channel(cat, snapshot, suffix)
+
+        if snapshot.enabled:
+            for channel in tracked:
+                if not channel.name.startswith(snapshot.prefix):
+                    await self.ac_prefix_sync(channel, snapshot)
+
+    async def create_auto_channel(
+        self, cat: discord.CategoryChannel, snapshot: CategorySnapshot, suffix: int
+    ) -> discord.VoiceChannel | None:
+        """Create and track a single auto voice channel.
+
+        Args:
+            cat: Category to create the channel in.
+            snapshot: The category's configuration.
+            suffix: Numeric suffix for the new channel.
+
+        Returns:
+            The created channel, or None if it could not be tracked.
+        """
+        created = await cat.create_voice_channel(
+            snapshot.channel_name(suffix),
+            position=suffix + len(cat.text_channels),
+            user_limit=snapshot.channel_size,
+            reason="AutoChannel bot automation",
+        )
+        LOG.debug("Created auto-channel %s (%s) in CAT: %s", created.name, created.id, cat.id)
+        try:
+            self.track_channel(created.id, cat.id, suffix)
+        except Exception:
+            LOG.exception("Could not track channel %s; removing it", created.id)
+            with contextlib.suppress(discord.HTTPException):
+                await created.delete(reason="AutoChannel could not track this channel")
+            return None
+        self._pending_channels[created.id] = (cat.id, time.monotonic())
+        return created
 
     @task_metrics_counter
     async def vc_delete_channel(
-        self, voicechannel: discord.VoiceChannel | discord.StageChannel, **kwargs: Any
+        self, voicechannel: discord.VoiceChannel | discord.StageChannel, reason: str | None = None
     ) -> None:
-        """Delete a voice channel.
+        """Delete a custom voice channel.
 
         Args:
             voicechannel: The voice channel to delete.
+            reason: Audit log reason for the deletion.
         """
-        reason = kwargs.get("reason")
         await voicechannel.delete(reason=reason)
 
     async def manage_auto_voice_channels(
         self, autochannel: AutoChannel, guild: discord.Guild | None = None
     ) -> None:
-        """Manage auto voice channels in guilds.
+        """Re-sync auto channels with the database and queue every category.
+
+        Removes database rows for auto channels that no longer exist (deleted
+        while the bot was offline) and queues each configured category that is
+        enabled, or that is disabled but still has auto channels to clean up.
 
         Args:
             autochannel: The bot instance.
-            guild: The guild to manage channels in, if None manage all guilds.
+            guild: The guild to manage channels in; if None manage all guilds.
         """
-        db_cats_disabled = None
-        if guild:
-            with self.autochannel._db.transaction() as session:
-                db_cats = list(
-                    session.query(Category)
-                    .with_entities(Category.id)
-                    .filter_by(enabled=True, guild_id=guild.id)
-                    .all()
-                )
-            db_cats = [i[0] for i in db_cats]
-            db_cats_disabled = list(
-                session.query(Category)
-                .with_entities(Category.id)
-                .filter_by(enabled=False, guild_id=guild.id)
-                .all()
-            )
-            db_cats_disabled = [i[0] for i in db_cats_disabled]
-            ac_guilds = []
-            ac_guilds.append(guild)
-        else:
-            with self.autochannel._db.transaction() as session:
-                db_cats = list(
-                    session.query(Category).with_entities(Category.id).filter_by(enabled=True).all()
-                )
-            db_cats = [i[0] for i in db_cats]
-            ac_guilds = list(autochannel.guilds)
-        for server in ac_guilds:
-            if db_cats_disabled:
-                """ Runs if we have are calling the acupdate"""
-                categories = [cat for cat in server.categories if cat.id in db_cats_disabled]
-                for cat in categories:
-                    db_cat = self.autochannel.session.query(Category).get(cat.id)
-                    if db_cat is None:
-                        continue
-                    db_channel_list_id = db_cat.get_channels()
-                    auto_channels = [
-                        channel
-                        for channel in cat.voice_channels
-                        if channel.id in db_channel_list_id
-                    ]
-                    for _channel in auto_channels:
-                        q_object = {
-                            "cat": cat,
-                            "guild": server.name,
-                            "type": "ac_delete_channel",
-                            "force": True,
-                        }
-                        LOG.debug(f"Adding to queue: {q_object}")
-                        await self.queue.put(q_object)
+        snapshots = self.load_categories(guild.id if guild else None)
+        guilds = [guild] if guild else list(autochannel.guilds)
 
-            categories = [cat for cat in server.categories if cat.id in db_cats]
-            """checking if the db knows about the categorey"""
-            for cat in categories:
-                self.autochannel.session.expire_all()
-                db_cat = self.autochannel.session.query(Category).get(cat.id)
-                if db_cat is None:
+        for server in guilds:
+            if server.unavailable:
+                continue
+            for cat in server.categories:
+                snapshot = snapshots.get(cat.id)
+                if snapshot is None:
                     continue
-                auto_channels = [
-                    channel
-                    for channel in cat.voice_channels
-                    if channel.name.startswith(db_cat.prefix)
-                ]
-                """
-                Temporary to sync non db entries
-                be removed on the 6.1.x release
-                """
-                db_channel_list_id = db_cat.get_channels()
-                missing_db_channels = [
-                    channel for channel in auto_channels if channel.id not in db_channel_list_id
-                ]
-                LOG.debug(missing_db_channels)
-
-                with self.autochannel._db.transaction() as session:
-                    for chan in missing_db_channels:
-                        try:
-                            chan_id_add = Channel(
-                                id=chan.id,
-                                cat_id=db_cat.id,
-                                chan_type="voice",
-                                num_suffix=int(self.get_ac_channel(chan)),
-                            )
-                            session.add(chan_id_add)
-                        except Exception:
-                            LOG.info(
-                                f"skipping issue for: guild={server.name}, channel={chan.name}"
-                            )
-
-                    if len(missing_db_channels) > 0:
-                        session.commit()
-
-                """
-                be removed on the 6.1.x release
-                """
-
-                db_channel_list_id = db_cat.get_channels()
-                auto_channels = [
-                    channel for channel in cat.voice_channels if channel.id in db_channel_list_id
-                ]
-
-                """
-                    Will sync outdated prefixes
-                """
-                prefix_sync = [
-                    channel
-                    for channel in auto_channels
-                    if not channel.name.startswith(db_cat.prefix)
-                ]
-                for chan in prefix_sync:
-                    q_object = {
-                        "db_cat": db_cat,
-                        "channel": chan,
-                        "guild": server.name,
-                        "type": "ac_prefix_sync",
-                    }
-                    LOG.debug(f"Adding to queue: {q_object}")
-                    await self.queue.put(q_object)
-
-                empty_channel_list = [
-                    channel for channel in auto_channels if len(channel.members) < 1
-                ]
-                """ need a list of empty channels to decide wat to clean up """
-                empty_channel_count = len(empty_channel_list)
-                LOG.debug(
-                    "GUILD: %s category: %s empty channel count %s",
-                    server.name,
-                    cat.name,
-                    empty_channel_count,
-                )
-
-                """
-                Adding new channels in queue to be processed
-                """
-                if empty_channel_count < db_cat.empty_count:
-                    while empty_channel_count < db_cat.empty_count:
-                        q_object = {"cat": cat, "guild": server.name, "type": "ac_create_channel"}
-                        LOG.debug(f"Adding to queue: {q_object}")
-                        await self.queue.put(q_object)
-                        empty_channel_count += 1
-
-                if empty_channel_count > 1:
-                    while empty_channel_count > db_cat.empty_count:
-                        q_object = {
-                            "cat": cat,
-                            "guild": server.name,
-                            "type": "ac_delete_channel",
-                            "force": True,
-                        }
-                        LOG.debug(f"Adding to queue: {q_object}")
-                        await self.queue.put(q_object)
-                        empty_channel_count -= 1
+                present = {channel.id for channel in cat.voice_channels}
+                stale = [cid for cid in snapshot.channels if cid not in present]
+                if stale:
+                    LOG.info("Forgetting %d stale auto-channels in CAT: %s", len(stale), cat.id)
+                    self.untrack_channels(stale)
+                if snapshot.enabled or len(stale) < len(snapshot.channels):
+                    self.enqueue_category(cat)
 
     @task_metrics_counter
     async def ac_prefix_sync(
-        self, channel: discord.VoiceChannel, db_cat: Category, **kwargs: Any
+        self, channel: discord.VoiceChannel, snapshot: CategorySnapshot
     ) -> None:
-        """Update a channel's name to match the category prefix.
+        """Rename a channel to match the category's current prefix.
 
         Args:
-            channel: The voice channel to update.
-            db_cat: The category object from the database.
+            channel: The voice channel to rename.
+            snapshot: The category's configuration.
         """
-        channel_db = self.autochannel.session.query(Channel).get(channel.id)
-        if channel_db is None:
+        suffix = snapshot.channels.get(channel.id)
+        if suffix is None:
             return
-        LOG.debug(f"Channel suffix being updated: {channel_db.num_suffix}")
-        await channel.edit(name=f"{db_cat.prefix} - {channel_db.num_suffix}")
-
-    def ac_db_highest_empty_channel(
-        self, empty_auto_channels: list[discord.VoiceChannel]
-    ) -> discord.VoiceChannel | None:
-        """_summary_
-
-        Args:
-            empty_auto_channels (list): _description_
-
-        Returns:
-            Optional[discord.VoiceChannel]: _description_
-        """
-        highest_empty_channel = None
-        highest_empty_channel_num = None
-        for ec in empty_auto_channels:
-            ec_db = self.autochannel.session.query(Channel).get(ec.id)
-            if ec_db is None:
-                continue
-            if not highest_empty_channel:
-                highest_empty_channel_num = self.get_ac_db_channel(ec_db)
-                highest_empty_channel = ec
-            if (
-                highest_empty_channel_num is not None
-                and self.get_ac_db_channel(ec_db) > highest_empty_channel_num
-            ):
-                highest_empty_channel = ec
-        return highest_empty_channel
+        LOG.debug("Renaming auto-channel %s to prefix %s", channel.id, snapshot.prefix)
+        await channel.edit(name=snapshot.channel_name(suffix))
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """Called when the bot is ready. Manages voice channels in case bot was down."""
+        """Re-sync voice channels in case anything changed while the bot was down."""
         await self.manage_auto_voice_channels(self.autochannel)
 
     @app_commands.checks.has_permissions(manage_channels=True)
     @app_commands.command(name="sync", description="sync from http://auto-chan.io")
     @command_metrics_counter
     async def sync(self, interaction: discord.Interaction) -> None:
-        """_summary_
+        """Queue every configured category in this guild for reconciliation.
 
         Args:
-            interaction (discord.Interaction): _description_
+            interaction: The interaction that triggered the command.
         """
         await self.manage_auto_voice_channels(self.autochannel, guild=interaction.guild)
         await interaction.response.send_message(
@@ -452,6 +353,12 @@ class AutoChannels(commands.Cog):
     async def on_sync_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
     ) -> None:
+        """Report ``/sync`` failures back to the user.
+
+        Args:
+            interaction: The interaction that triggered the command.
+            error: The error raised by the command.
+        """
         LOG.exception("sync command failed: %s", error)
         msg = f"Error {error}"
         if interaction.response.is_done():
@@ -465,62 +372,63 @@ class AutoChannels(commands.Cog):
     async def vc(
         self, interaction: discord.Interaction, category: str, channel_name: str = ""
     ) -> None:
-        """_summary_
+        """Create a temporary custom voice channel and reply with an invite.
+
+        The channel is deleted after 60 seconds if nobody joins, or as soon as
+        it becomes empty afterwards.
 
         Args:
-            interaction (discord.Interaction): _description_
-            category (str): _description_
-            channelname (str, optional): _description_. Defaults to ''.
+            interaction: The interaction that triggered the command.
+            category: Name of the category to create the channel in.
+            channel_name: Optional custom channel name.
 
         Raises:
-            ACUnknownCategory: _description_
-            VCProfaneWordused: _description_
-            ACDisabledCustomCategory: _description_
+            ACUnknownCategory: The category does not exist or is not configured.
+            VCProfaneWordused: The channel name contains profanity.
+            ACDisabledCustomCategory: Custom channels are disabled for the category.
         """
         guild = interaction.guild
-        if guild is None:
+        if guild is None or not self.validateCategory(interaction, category):
             raise ACUnknownCategory("Unknown Discord category")
 
-        if not self.validateCategory(interaction, category):
+        discord_category = next(
+            cat for cat in guild.categories if cat.name.lower() in category.lower()
+        )
+        snapshot = self.load_category(discord_category.id)
+        if snapshot is None:
             raise ACUnknownCategory("Unknown Discord category")
 
-        category_name = [cat for cat in guild.categories if cat.name.lower() in category.lower()][0]
-        category_obj = self.autochannel.session.query(Category).get(category_name.id)
-        if category_obj is None:
-            raise ACUnknownCategory("Unknown Discord category")
-
-        """Checks if there is channel name and if there is profanity used"""
         vc_suffix: str | int
         if channel_name:
             vc_suffix = channel_name
             if pf.is_profane(channel_name):
                 raise VCProfaneWordused("Used a profane word when creating a custom voice channel")
         else:
-            vc_suffix = self.vc_channel_number(interaction, category, category_obj)
+            vc_suffix = self.vc_channel_number(interaction, category, snapshot)
 
-        if not category_obj.custom_enabled:
+        if not snapshot.custom_enabled:
             raise ACDisabledCustomCategory(
-                f"Category {category_name.name} is disabled. "
+                f"Category {discord_category.name} is disabled. "
                 f"ADMIN** must enable: http://auto-chan.io"
             )
 
         created_vc = await guild.create_voice_channel(
-            f"{category_obj.custom_prefix} {vc_suffix}",
+            f"{snapshot.custom_prefix} {vc_suffix}",
             overwrites={},
-            category=category_name,
+            category=discord_category,
             reason="AutoChannel bot automation",
         )
         invite_link = await self.createVCInvite(interaction, created_vc)
 
-        await interaction.response.send_message(invite_link)
+        await interaction.response.send_message(str(invite_link))
         if isinstance(interaction.channel, discord.abc.Messageable):
             await interaction.channel.send(
                 f"AutoChannel made `{interaction.user}` a channel `{created_vc.name}`"
             )
 
         await asyncio.sleep(60)
-        if len(created_vc.members) < 1:
-            with contextlib.suppress(Exception):
+        if not created_vc.members:
+            with contextlib.suppress(discord.HTTPException):
                 await self.vc_delete_channel(
                     created_vc, reason="No one joined the custom channel after 60 seconds"
                 )
@@ -529,47 +437,47 @@ class AutoChannels(commands.Cog):
     async def vc_autocomplete(
         self, interaction: discord.Interaction, current: str
     ) -> list[app_commands.Choice[str]]:
-        """_summary_
+        """Suggest categories in this guild that allow custom channels.
 
         Args:
-            interaction (discord.Interaction): _description_
-            current (str): _description_
+            interaction: The autocomplete interaction.
+            current: What the user has typed so far.
 
         Returns:
-            list[app_commands.Choice[str]]: _description_
+            Matching category choices (Discord shows at most 25).
         """
-
-        """good chance this might cause lots of db queries if abused"""
         guild = interaction.guild
         if guild is None:
             return []
 
-        category_objs = (
-            self.autochannel.session.query(Category)
-            .filter_by(custom_enabled=True, guild_id=guild.id)
-            .all()
-        )
+        with self.autochannel.db.transaction() as session:
+            category_ids = list(
+                session.scalars(
+                    select(Category.id).where(
+                        Category.custom_enabled.is_(True), Category.guild_id == guild.id
+                    )
+                )
+            )
 
-        categories = []
-        for category in category_objs:
-            try:
-                discord_channel = guild.get_channel(category.id)
-                if discord_channel is None:
-                    continue
-                categories.append(discord_channel.name)
-            except Exception as e:
-                LOG.error(e)
-
-        return [
-            app_commands.Choice(name=category, value=category)
-            for category in categories
-            if current.lower() in category.lower()
+        names = [
+            channel.name for cid in category_ids if (channel := guild.get_channel(cid)) is not None
         ]
+        return [
+            app_commands.Choice(name=name, value=name)
+            for name in names
+            if current.lower() in name.lower()
+        ][:25]
 
     @vc.error
     async def on_vc_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
     ) -> None:
+        """Report ``/vc`` failures back to the user with a helpful hint.
+
+        Args:
+            interaction: The interaction that triggered the command.
+            error: The error raised by the command.
+        """
         LOG.exception("vc command failed: %s", error)
         msg = str(error)
         if isinstance(error, ACUnknownCategory):
@@ -585,189 +493,78 @@ class AutoChannels(commands.Cog):
         else:
             await interaction.response.send_message(msg)
 
-    def valid_auto_channel(self, v_state: discord.VoiceState) -> bool:
-        """_summary_
-
-        Args:
-            v_state (discord.VoiceState): _description_
-
-        Returns:
-            bool: _description_
-        """
-        if (
-            v_state is not None
-            and v_state.channel is not None
-            and v_state.channel.category is not None
-        ):
-            category = self.autochannel.session.query(Category).get(v_state.channel.category.id)
-            db_channel_list_id = category.get_channels() if category else []
-            return bool(
-                category
-                and category.enabled
-                and v_state.channel
-                and v_state.channel.id in db_channel_list_id
-            )
-        return False
-
-    async def after_ac_task(
-        self, after: discord.VoiceState, member: discord.Member | None = None
-    ) -> None:
-        """_summary_
-
-        Args:
-            after (discord.VoiceState): _description_
-            member (_type_, optional): _description_. Defaults to None.
-        """
-        channel = after.channel
-        if not isinstance(channel, discord.VoiceChannel) or channel.category is None:
-            return
-        cat = channel.category
-        category = self.autochannel.session.query(Category).get(cat.id)
-        if category is None:
-            return
-        db_channel_list_id = category.get_channels()
-        auto_channels = [
-            channel for channel in cat.voice_channels if channel.id in db_channel_list_id
-        ]
-        empty_channel_count = len(
-            [channel for channel in auto_channels if len(channel.members) < 1]
-        )
-        if empty_channel_count < category.empty_count:
-            q_object = {"cat": cat, "guild": cat.guild.name, "type": "ac_create_channel"}
-            LOG.debug(f"queue object added: {q_object}")
-            await self.queue.put(q_object)
-
-    async def before_ac_task(
-        self, before: discord.VoiceState, member: discord.Member | None = None
-    ) -> None:
-        """handles the updates to the old channel the user left
-
-        Args:
-            before (discord.VoiceState): before state channel
-            member (_type_, optional): _description_. Defaults to None.
-        """
-        channel = before.channel
-        if not isinstance(channel, discord.VoiceChannel) or channel.category is None:
-            return
-        cat = channel.category
-        category = self.autochannel.session.query(Category).get(cat.id)
-        if category is None:
-            return
-        db_channel_list_id = category.get_channels()
-        if len(channel.members) < 1:
-            auto_channels = [
-                channel
-                for channel in cat.voice_channels
-                if channel.id in db_channel_list_id and len(channel.members) < 1
-            ]
-            LOG.debug(f"empty autochannels for {cat.name}: {auto_channels}")
-            empty_channel_count = len(auto_channels)
-            if empty_channel_count > category.empty_count:
-                q_object = {
-                    "cat": cat,
-                    "guild": cat.guild.name,
-                    "type": "ac_delete_channel",
-                    "force": False,
-                }
-                LOG.debug(f"queue object added: {q_object}")
-                await self.queue.put(q_object)
-
     @task_metrics_counter
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
-        """This tracks all channel deletes and if the channel is tracked by auto-chan,
-        it will clean up the db entry. This is imporant due to admins deleting channels
-        managed by auto-chan that otherwise would get missed.
+        """Forget deleted auto channels and refill their category.
 
-        Arguments:
-            channel {[type]} -- [description]
+        Admins can delete auto channels by hand; without this the database
+        would keep stale rows and the category could end up with no empty
+        channel.
+
+        Args:
+            channel: The deleted channel.
         """
-
-        LOG.debug(f"Channel that was deleted {channel.id}")
-        chan_id_delete = self.autochannel.session.query(Channel).get(channel.id)
-        if chan_id_delete:
-            LOG.debug(f"chan_ID_DELETE: {chan_id_delete}")
-            self.autochannel.session.delete(chan_id_delete)
-            self.autochannel.session.commit()
+        self._pending_channels.pop(channel.id, None)
+        with self.autochannel.db.transaction() as session:
+            tracked = session.get(Channel, channel.id)
+            if tracked is None:
+                return
+            LOG.debug("Forgetting deleted auto-channel %s", channel.id)
+            session.delete(tracked)
+        if channel.category is not None:
+            self.enqueue_category(channel.category)
 
     @task_metrics_counter
     @commands.Cog.listener()
     async def on_voice_state_update(
         self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
     ) -> None:
-        """Checks before and afer states of channels users leave and join
-        this will handle logic to make sure there is no more than N (current
-        defaulted to 1) empty channel at any time. This will also create a
-        if less than N (current set to 1).
+        """React to members joining, leaving or moving between voice channels.
+
+        Empty custom ``/vc`` channels are deleted, and any auto channel category
+        the member left or joined is queued for reconciliation so it keeps
+        ``empty_count`` empty channels available. Mute/deafen/stream updates
+        that don't change channel are ignored.
 
         Args:
-            member (discord.Member): discord member
-            before (discord.VoiceState): before voice channel object
-            after (discord.VoiceState): after voice channel object
+            member: The member whose voice state changed.
+            before: The voice state before the update.
+            after: The voice state after the update.
         """
-        if (
-            isinstance(before.channel, discord.VoiceChannel | discord.StageChannel)
-            and before.channel.category is not None
-            and len(before.channel.members) < 1
-        ):
-            category = self.autochannel.session.query(Category).get(before.channel.category_id)
-            if category and before.channel.name.startswith(f"{category.custom_prefix}"):
-                await self.vc_delete_channel(before.channel, reason="now empty")
+        before_channel, after_channel = before.channel, after.channel
+        if before_channel == after_channel:
+            return
 
-        LOG.debug(self.valid_auto_channel(before))
-        if self.valid_auto_channel(before):
-            await self.before_ac_task(before, member=member)
-        LOG.debug(self.valid_auto_channel(after))
-        if self.valid_auto_channel(after):
-            await self.after_ac_task(after, member=member)
-
-    def ac_db_channel_number(self, db_cat: Category) -> int:
-        """returns number from auto prefix and returns the lowest number
-
-        Args:
-            db_cat (_type_): List of voice_channels objects
-
-        Returns:
-            int: the lowest number missing from the sequence of voice_channels
-        """
-        suffix_list = db_cat.get_chan_suffix()
-
-        return missing_numbers(suffix_list)[0]
-
-    def get_ac_channel(self, auto_channel: discord.VoiceChannel) -> int:
-        """returns the auto generated number suffix of a channel
-
-        Args:
-            auto_channel (_type_): _description_
-
-        Returns:
-            int: _description_
-        """
-        return int("".join(auto_channel.name.split(" ")[-1:]))
-
-    def get_ac_db_channel(self, auto_channel: Channel) -> int:
-        """[summary]
-
-        Arguments:
-            auto_channel {[type]} -- [description]
-
-        Returns:
-            [type] -- [description]
-        """
-        return auto_channel.num_suffix
+        for channel in (before_channel, after_channel):
+            if channel is None or channel.category is None:
+                continue
+            snapshot = self.load_category(channel.category.id)
+            if snapshot is None:
+                continue
+            if channel.id in snapshot.channels:
+                self.enqueue_category(channel.category)
+            elif (
+                channel is before_channel
+                and isinstance(channel, discord.VoiceChannel | discord.StageChannel)
+                and not channel.members
+                and channel.name.startswith(snapshot.custom_prefix)
+            ):
+                with contextlib.suppress(discord.NotFound):
+                    await self.vc_delete_channel(channel, reason="now empty")
 
     def vc_channel_number(
-        self, interaction: discord.Interaction, category: str, category_obj: Category
+        self, interaction: discord.Interaction, category: str, snapshot: CategorySnapshot
     ) -> int:
-        """_summary_
+        """Return the next number for an unnamed custom ``/vc`` channel.
 
         Args:
-            interaction (discord.Interaction): _description_
-            category (_type_): _description_
-            categoryObj (_type_): _description_
+            interaction: The interaction that triggered the command.
+            category: The category name the user asked for.
+            snapshot: The category's configuration.
 
         Returns:
-            int: _description_
+            One more than the number of existing custom channels in the category.
         """
         guild = interaction.guild
         if guild is None:
@@ -775,8 +572,8 @@ class AutoChannels(commands.Cog):
         ac_channels = [
             vc
             for vc in guild.voice_channels
-            if str(vc.category).lower().startswith(f"{category}")
-            and vc.name.startswith(category_obj.custom_prefix)
+            if str(vc.category).lower().startswith(category.lower())
+            and vc.name.startswith(snapshot.custom_prefix)
         ]
         return len(ac_channels) + 1
 
@@ -792,8 +589,7 @@ class AutoChannels(commands.Cog):
         Returns:
             An invite for the voice channel.
         """
-        invite = await voice_channel.create_invite()
-        return invite
+        return await voice_channel.create_invite()
 
     def validateCategory(self, interaction: discord.Interaction, category: str) -> bool:
         """Validate if a category exists for the given interaction.
@@ -821,10 +617,7 @@ class AutoChannels(commands.Cog):
         guild = interaction.guild
         if guild is None:
             return []
-        cat_list: list[str] = []
-        for cat in guild.categories:
-            cat_list.append(cat.name.lower())
-        return cat_list
+        return [cat.name.lower() for cat in guild.categories]
 
 
 async def setup(autochannel: AutoChannel) -> None:

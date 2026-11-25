@@ -14,6 +14,11 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
 - Use `from __future__ import annotations` at the top of each file to enable postponed evaluation of annotations
 
 ## Project Structure
+The repo root is a uv workspace (`[tool.uv.workspace]` in the root `pyproject.toml`)
+with a single root `uv.lock`. The bot stays at the root; shared packages live in `packages/`.
+- `packages/autochannel-models/` - Shared schema package (`autochannel_models`)
+  - `autochannel_models/__init__.py` - The only definition of `Base`, `db`, `Guild`,
+    `Category` and `Channel`; imported by the bot and the auto-chan.io dashboard
 - `autochannel/` - Core bot code
   - `__init__.py` - Package metadata and version info
   - `autochannel.py` - Custom Bot class implementation
@@ -21,9 +26,10 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
   - `data/` - Database models and session management
     - `__init__.py`
     - `database.py`
-    - `models.py`
+    - `models.py` - Re-exports the models from `autochannel_models` (defines no models)
   - `lib/` - Utility functions and plugins
     - `plugins/` - Discord cog extensions
+    - `maintenance.py` - Pure auto channel maintenance rules (create/delete planning)
     - `metrics.py` - Prometheus metrics tracking
     - `utils.py` - Helper functions
 - `.github/workflows/` - GitHub Actions CI/CD pipelines
@@ -33,7 +39,8 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
 The AutoChannel bot follows a modular architecture with the following component relationships:
 1. **Main Entry Point**: `autochannel_bot.py` initializes the bot and sets up configuration
 2. **Core Bot Class**: `autochannel.py` extends discord.Client with custom functionality 
-3. **Database Layer**: `data/` package handles all database interactions via SQLAlchemy
+3. **Database Layer**: `data/` package handles all database interactions via SQLAlchemy;
+   the schema itself comes from the shared `autochannel_models` package
 4. **Plugin System**: `lib/plugins/` contains Discord cogs that extend bot functionality
 5. **Metrics**: `lib/metrics.py` provides Prometheus monitoring integration
 6. **Utility Functions**: `lib/utils.py` contains shared helper functions
@@ -46,7 +53,8 @@ The bot initialization flow:
 5. The bot connects to Discord using the provided token
 
 ## Key Dependencies
-- **discord.py**: >=2.4.1 - Primary framework for interacting with Discord API
+- **Python**: >=3.13 (CI on 3.13 and 3.14; Docker image uses 3.14)
+- **discord.py**: >=2.7.1 - Primary framework for interacting with Discord API
 - **SQLAlchemy**: Database ORM for PostgreSQL integration
 - **aiohttp**: Asynchronous HTTP client for API requests
 - **Flask-SQLAlchemy**: Integration between Flask and SQLAlchemy for database management
@@ -67,7 +75,19 @@ The documentation for discord.py can be found at: [https://discordpy.readthedocs
 - **Linting**: `ruff format . && ruff check .`
 - **Type checking**: `mypy --package autochannel --strict`
 - **Testing**: `make test` or `pytest -v`
-- CI runs lint, type check, and tests on Python 3.10, 3.11, 3.12
+- CI runs lint, type check, and tests on Python 3.13 and 3.14
+
+## Channel Maintenance
+- Voice state changes, channel deletes and `/sync` only *queue* a category; the
+  single `queue_loop` worker reconciles it to `empty_count` empty auto channels
+  (0 when the category is disabled), deleting highest-numbered empties first.
+- Schema changes go in `packages/autochannel-models/` only, and must update
+  `tests/test_schema.py`, which pins the tables and columns.
+- Never keep SQLAlchemy models past their `DB.transaction()` block; use
+  `CategorySnapshot` from `lib/maintenance.py` instead.
+- App command errors meant for `@cmd.error` handlers must subclass
+  `app_commands.AppCommandError`, otherwise they arrive wrapped in `CommandInvokeError`.
+- Context menus can't live inside cogs; define them at module level and add them to `bot.tree`.
 
 ## Discord.py Migration Notes
 - `discord.Game` → `discord.Activity(type=discord.ActivityType.playing)`
@@ -85,7 +105,7 @@ The documentation for discord.py can be found at: [https://discordpy.readthedocs
 6. **Test after changes**: Always run the test suite after functional changes
 
 ## Getting Started
-1. Install dependencies: `uv sync --dev`
+1. Install dependencies: `uv sync --dev` (at the repo root; installs every workspace member)
 2. Set up environment: Copy `example.env` to `.env` and configure
 3. Run bot: `autochannel --debug` or `uv run python -m autochannel.autochannel_bot`
 4. Run tests: `make test` or `pytest -v` (ensures `uv sync --dev` is run first)

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autochannel-models"
+version = "1.0.0"
+description = "SQLAlchemy models shared by the AutoChannel bot and dashboard"
+license = { text = "MIT" }
+requires-python = ">=3.13"
+dependencies = [
+    "flask-sqlalchemy>=3.1.0",
+    "sqlalchemy>=2.0.25",
+]
+authors = [
+    { name = "Henry Hollenstain", email = "henry@hollenstain.io" }
+]
+
+[tool.setuptools]
+packages = ["autochannel_models"]
+
+[tool.setuptools.package-data]
+autochannel_models = ["py.typed"]

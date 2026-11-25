@@ -35,6 +35,43 @@ TESTING_GUILD_ID: str | None = os.getenv("TESTING_GUILD_ID")
 ENV: str | None = os.getenv("ENV")
 
 
+def validate_environment() -> None:
+    """Validate required environment variables for security.
+
+    Raises:
+        RuntimeError: If any required environment variable is missing or invalid.
+    """
+    # Check required environment variables
+    if not TOKEN:
+        raise RuntimeError("TOKEN environment variable is required")
+
+    # Validate SHARD_COUNT is a positive integer
+    try:
+        shard_count = int(SHARD_COUNT)
+        if shard_count <= 0:
+            raise ValueError("SHARD_COUNT must be a positive integer")
+    except ValueError as e:
+        raise RuntimeError(f"Invalid SHARD_COUNT value: {e}") from e
+
+    # Validate SHARD is a valid integer
+    try:
+        shard_id = int(SHARD)
+        if shard_id < 0:
+            raise ValueError("SHARD must be a non-negative integer")
+    except ValueError as e:
+        raise RuntimeError(f"Invalid SHARD value: {e}") from e
+
+    # Validate that APP_ID is not the default fakeid
+    if APP_ID == "fakeid":
+        LOG.warning("APP_ID is set to default 'fakeid'. This may cause issues in production.")
+
+    # Validate that AUTO_CATEGORIES contains valid values
+    if not AUTO_CATEGORIES or (len(AUTO_CATEGORIES) == 1 and AUTO_CATEGORIES[0] == ""):
+        raise RuntimeError(
+            "AUTO_CATEGORIES environment variable must contain at least one category"
+        )
+
+
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments for the bot.
 
@@ -92,6 +129,9 @@ async def run_autochannel() -> None:
 
     LOG.info("LONG LIVE AutoChannel bot")
 
+    # Validate environment variables for security
+    validate_environment()
+
     intents = discord.Intents.default()
     LOG.info(f"Intents: {intents}")
 
@@ -113,16 +153,8 @@ async def run_autochannel() -> None:
     if TOKEN is None:
         raise RuntimeError("TOKEN environment variable is required")
 
-    # Set transaction isolation level to prevent locking issues
-    try:
-        # We should ensure there's a consistent session management approach
-        # This step may involve adding a check to verify our approach works correctly
-        LOG.info("Database connection initialized with proper session handling")
-    except Exception as e:
-        LOG.error(f"Failed to initialize database connection: {e}")
-        raise
-
-    await autochannel.start(TOKEN)
+    async with autochannel:
+        await autochannel.start(TOKEN)
 
 
 def main() -> None:

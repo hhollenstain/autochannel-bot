@@ -9,11 +9,24 @@ over all this, but should be straight forward. Check out [uv](https://github.com
 
 
 
+### Repository layout
+
+This repo is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/).
+Run `uv sync --dev` at the root to install every member from the single root `uv.lock`.
+
+| Path | What it is |
+| :--- | :--------- |
+| `autochannel/`, `tests/` | The Discord bot (root workspace project) |
+| `packages/autochannel-models/` | `autochannel_models`, the shared SQLAlchemy schema (`Guild`, `Category`, `Channel`, `db`) |
+
+Schema changes are made only in `packages/autochannel-models/`; `tests/test_schema.py` pins
+the tables and columns.
+
 ### Running commands
 
 #### make init
 does the base install of the source package through uv that should already be installed,
-if a local uv venv isn't yet setup this is when it will happen (python 3.12+)
+if a local uv venv isn't yet setup this is when it will happen (python 3.13+)
 
 #### make check
 Designed to do linting and uv dependency checking
