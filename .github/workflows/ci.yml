@@ -1,11 +1,53 @@
 name: CI
 
+# Every job runs on every PR, with no path filters on purpose: the bot and the UI share
+# packages/autochannel-db and one uv.lock, so a change anywhere has to keep both apps green.
+
 on:
   push:
     branches: [master, main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  db:
+    name: autochannel-db (lint, mypy, migrations vs models)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autochannel_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URI: postgresql://postgres:postgres@localhost:5432/autochannel_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+      - run: uv sync --frozen --all-packages
+      - name: ruff
+        working-directory: packages/autochannel-db
+        run: |
+          uv run --no-sync ruff format --check .
+          uv run --no-sync ruff check .
+      - run: uv run --no-sync mypy --strict packages/autochannel-db/src/autochannel_db --exclude migrations
+      # Runs every Alembic revision against Postgres and diffs the result with models.py.
+      - name: Alembic history matches models.py
+        working-directory: apps/ui
+        run: uv run --no-sync pytest -v tests/test_migrations.py
+
   bot:
     name: Bot (lint, mypy, pytest)
     runs-on: ubuntu-latest
@@ -18,7 +60,58 @@ jobs:
         with:
           python-version: "3.14"
       - run: uv sync --frozen --package autochannel
-      - run: uv run --no-sync ruff format --check autochannel
-      - run: uv run --no-sync ruff check autochannel
+      - run: uv run --no-sync ruff format --check autochannel tests
+      - run: uv run --no-sync ruff check autochannel tests
       - run: uv run --no-sync mypy --package autochannel --strict
       - run: uv run --no-sync pytest -v
+
+  ui-backend:
+    name: UI backend (lint, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+      - run: uv sync --frozen --package autochannel-ui
+      - run: uv run --no-sync ruff check .
+      # test_migrations runs in the db job, which has Postgres.
+      - run: uv run --no-sync pytest -v --ignore tests/test_migrations.py
+
+  ui-frontend:
+    name: UI frontend (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ui/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/ui/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  images:
+    name: Docker build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [bot, ui]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: false
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}

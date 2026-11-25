@@ -1,0 +1,11 @@
+target-version = "py314"
+line-length = 100
+src = ["src"]
+# Alembic revisions are generated; keep them as written.
+extend-exclude = ["src/autochannel_db/migrations/versions"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[format]
+quote-style = "single"
