@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Page, type Request, type Route } from '@playwright/test';
 import { SCREENSHOT_DIR } from './global-setup';
 
@@ -23,6 +24,7 @@ function isLocal(url: URL) {
 export const test = base.extend<{
   api: ApiRoutes;
   unexpected: string[];
+  /** Screenshots the page as `<name>-light.png` and `<name>-dark.png`, checking contrast in each. */
   shoot: (name: string) => Promise<void>;
 }>({
   // Tests set their routes with `test.use({ api: {...} })`.
@@ -65,15 +67,40 @@ export const test = base.extend<{
   shoot: async ({ page }, use) => {
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await use(async (name) => {
-      await waitForImages(page);
-      await page.screenshot({
-        path: join(SCREENSHOT_DIR, `${name}.png`),
-        fullPage: true,
-        animations: 'disabled',
-      });
+      const original = await page.evaluate(() => document.documentElement.getAttribute('data-bs-theme'));
+      for (const theme of THEMES) {
+        await setTheme(page, theme);
+        await waitForImages(page);
+        await page.screenshot({
+          path: join(SCREENSHOT_DIR, `${name}-${theme}.png`),
+          fullPage: true,
+          animations: 'disabled',
+        });
+        await expectNoContrastViolations(page, `${name} (${theme})`);
+      }
+      if (original) await setTheme(page, original as Theme);
     });
   },
 });
+
+export const THEMES = ['light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+
+/** Switch the theme the same way the toggle does, without saving the choice. */
+export async function setTheme(page: Page, theme: Theme) {
+  await page.evaluate(async (t) => {
+    document.documentElement.setAttribute('data-bs-theme', t);
+    // Let color transitions (e.g. Bootstrap buttons) settle before measuring contrast.
+    const transitions = document.getAnimations().filter((a) => a instanceof CSSTransition);
+    await Promise.all(transitions.map((a) => a.finished.catch(() => {})));
+  }, theme);
+}
+
+export async function expectNoContrastViolations(page: Page, label: string) {
+  const { violations } = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
+  const nodes = violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(' ')}: ${n.failureSummary}`));
+  expect(nodes, `color-contrast violations on ${label}`).toEqual([]);
+}
 
 async function waitForImages(page: Page) {
   await page.waitForLoadState('load');

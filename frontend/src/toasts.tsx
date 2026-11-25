@@ -38,7 +38,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toast-stack" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`ac-toast ac-toast-${t.kind}`} role="status">
-            <button className="btn-close btn-close-white" aria-label="Close" onClick={() => dismiss(t.id)} />
+            <button className="btn-close" aria-label="Close" onClick={() => dismiss(t.id)} />
             <strong>{t.title}</strong>
             <div>{t.message}</div>
           </div>

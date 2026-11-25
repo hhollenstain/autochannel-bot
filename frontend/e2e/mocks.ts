@@ -43,4 +43,38 @@ export const CATEGORIES: Category[] = [
 
 export const GUILD_DETAIL: GuildDetail = { guild: GUILD, categories: CATEGORIES };
 
+/** A server with 20 categories, to check the page stays manageable with a long list. */
+export const MANY_CATEGORIES: Category[] = [
+  ...CATEGORIES,
+  ...[
+    'Raid Planning',
+    'General',
+    'Gaming',
+    'Music',
+    'Study Hall',
+    'Movie Night',
+    'Book Club',
+    'Art',
+    'Dev Talk',
+    'Support',
+    'Events',
+    'Tournaments',
+    'Off Topic',
+    'Streaming',
+    'Trading',
+    'Voice Lounge',
+    'Late Night',
+    'AFK',
+  ].map((name, i) => ({
+    id: `4000000000000001${String(i).padStart(2, '0')}`,
+    name,
+    enabled: i % 3 !== 0,
+    prefix: `${name.slice(0, 2).toUpperCase()}!`,
+    channel_size: (i % 5) * 2,
+    empty_count: (i % 3) + 1,
+    custom_enabled: i % 4 === 0,
+    custom_prefix: 'VC!',
+  })),
+];
+
 export const INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=0&scope=bot&guild_id=' + OTHER_GUILD.id;
