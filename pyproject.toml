@@ -67,6 +67,10 @@ test = [
     "pytest-asyncio>=0.25.0",
 ]
 
+[tool.pytest.ini_options]
+# Only the bot's suite; apps/ui has its own tests and environment.
+testpaths = ["tests"]
+
 [tool.mypy]
 python_version = "3.13"
 warn_return_any = true
