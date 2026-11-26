@@ -34,8 +34,10 @@ make logs          # follow logs
 make down          # stop the local stack
 ```
 
-Env vars come from your shell or a root `.env`. To pull secrets from 1Password, pass
-`RUN="op run --env-file=apps/ui/.env-dev --"`. Pass compose flags with `UP_FLAGS`, e.g.
+These targets, and `make migrate`, run under the 1Password CLI
+(`op run --env-file=apps/ui/.env-dev --`), which resolves the `op://` references in that
+file. Use `OP_ENV_FILE=...` for a different file, or `RUN=` to skip 1Password and use your
+shell or a root `.env` instead. Pass compose flags with `UP_FLAGS`, e.g.
 `make up-ui UP_FLAGS=-d`. While the full stack runs, `make up-bot` or `make up-ui`
 recreates only that app's container. These targets use their own compose project
 (`autochannel-local`), so they never touch a stack deployed from this directory with

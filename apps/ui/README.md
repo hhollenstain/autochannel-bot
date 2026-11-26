@@ -22,11 +22,11 @@ Requires Python 3.14 + [uv](https://docs.astral.sh/uv/) and Node 22+. Recipes li
 
 ```sh
 make install          # uv sync + npm ci
-make api              # Flask API on :5000 (needs the env vars from .env.example)
+make api              # Flask API on :5000, secrets via 1Password (`RUN=` to use plain env vars)
 make web              # Vite dev server on :5173, proxies /api, /login, /logout to :5000
 make test             # pytest + frontend typecheck/tests
 make e2e              # Playwright browser tests with mocked /api; screenshots → frontend/e2e/screenshots/
-make migrate          # alembic upgrade head against $SQLALCHEMY_DATABASE_URI
+make migrate          # alembic upgrade head against $SQLALCHEMY_DATABASE_URI (via 1Password)
 ```
 
 Browser tests (`frontend/e2e/`):

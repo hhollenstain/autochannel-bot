@@ -1,6 +1,9 @@
 .PHONY: help install api web test e2e build-web migrate docker-compose build-image
 
 IMAGE ?= hhollenstain/autochannel-ui:latest
+# Targets that need secrets run under the 1Password CLI; turn it off with RUN=.
+OP_ENV_FILE ?= .env-dev
+RUN ?= op run --env-file=$(OP_ENV_FILE) --
 
 help: ## List targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-16s %s\n", $$1, $$2}'
@@ -11,7 +14,7 @@ install: ## uv sync + npm ci
 
 # In dev, set FRONTEND_URL=http://localhost:5173 so OAuth returns to Vite.
 api: ## Flask API on :5000
-	uv run autochannel_ui --debug
+	$(RUN) uv run autochannel_ui --debug
 
 web: ## Vite dev server on :5173
 	cd frontend && npm run dev
@@ -28,10 +31,10 @@ build-web: ## Build the frontend
 	cd frontend && npm run build
 
 migrate: ## alembic upgrade head
-	uv run alembic -c ../../packages/autochannel-db/alembic.ini upgrade head
+	$(RUN) uv run alembic -c ../../packages/autochannel-db/alembic.ini upgrade head
 
 docker-compose: ## Build both images and run the full stack (root docker-compose.yml) with secrets from 1Password
-	$(MAKE) -C ../.. up RUN="op run --env-file=apps/ui/.env-dev --"
+	$(MAKE) -C ../.. up
 
 build-image: ## Build the Docker image
 	docker build -f Dockerfile -t $(IMAGE) ../..

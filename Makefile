@@ -1,14 +1,16 @@
 # Monorepo entry points. Each app also has its own Makefile under apps/<app>/.
 #
 # Docker targets run the root docker-compose.yml against images built here as :local.
-# Env vars come from the shell or a root .env file. To pull secrets from 1Password:
-#   make up RUN="op run --env-file=apps/ui/.env-dev --"
+# Commands that need secrets (the compose targets and migrate) run under the 1Password
+# CLI by default, resolving the op:// references in OP_ENV_FILE. To use plain env vars
+# or a root .env instead, turn it off with RUN=, e.g. `make up RUN=`.
 # Pass compose flags with UP_FLAGS, e.g. `make up-bot UP_FLAGS=-d`.
 .PHONY: help install test test-bot test-ui migrate \
 	build-images build-bot build-ui up up-bot up-ui down logs
 
 IMAGE_PREFIX ?= hhollenstain
-RUN ?=
+OP_ENV_FILE ?= apps/ui/.env-dev
+RUN ?= op run --env-file=$(OP_ENV_FILE) --
 UP_FLAGS ?=
 # Which image runs `alembic upgrade head` in the compose `migrate` service.
 MIGRATE_APP ?= autochannel-ui
@@ -34,7 +36,7 @@ test-ui: ## UI: ruff, pytest, frontend typecheck + tests
 	$(MAKE) -C apps/ui test
 
 migrate: ## alembic upgrade head against SQLALCHEMY_DATABASE_URI (local venv, no Docker)
-	uv run alembic -c packages/autochannel-db/alembic.ini upgrade head
+	$(RUN) uv run alembic -c packages/autochannel-db/alembic.ini upgrade head
 
 build-images: build-bot build-ui ## Build both images, tagged :local
 
