@@ -28,10 +28,10 @@ build-web: ## Build the frontend
 	cd frontend && npm run build
 
 migrate: ## alembic upgrade head
-	uv run alembic -c packages/autochannel-db/alembic.ini upgrade head
+	uv run alembic -c ../../packages/autochannel-db/alembic.ini upgrade head
 
 docker-compose: build-image ## Build the image and run it with secrets from 1Password
 	op run --env-file=.env-dev -- docker compose up
 
 build-image: ## Build the Docker image
-	docker build -t $(IMAGE) .
+	docker build -f Dockerfile -t $(IMAGE) ../..

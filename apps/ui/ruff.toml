@@ -1,7 +1,7 @@
 target-version = "py314"
 line-length = 100
-src = ["autochannel", "packages/autochannel-db/src", "tests"]
-extend-exclude = ["frontend", "packages/autochannel-db/src/autochannel_db/migrations/versions"]
+src = ["autochannel_ui", "tests"]
+extend-exclude = ["frontend"]
 
 [lint]
 select = ["E9", "F"]

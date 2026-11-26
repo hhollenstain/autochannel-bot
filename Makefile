@@ -1,25 +1,24 @@
-.PHONY: init check dist publish test
+# Monorepo entry points. Each app also has its own Makefile under apps/<app>/.
+.PHONY: help install test test-bot test-ui migrate build-images
 
-init:
-	uv sync --dev
+help: ## List targets
+	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
 
-check: test
-	uv run ruff check setup.py autochannel
+install: ## uv sync every workspace member + npm ci for the UI frontend
+	uv sync --all-packages
+	cd apps/ui/frontend && npm ci
 
-test:
-	uv sync --dev
-	PYTHONPATH=. uv run python -c "from autochannel import VERSION; print(VERSION)"
-	PYTHONPATH=. uv run python -c "import autochannel.autochannel_bot"
-	PYTHONPATH=. uv run python -m pytest tests/ -v --tb=short
+test: test-bot test-ui ## Run every app's checks
 
-dist: init check
-	uv run python setup.py sdist bdist_wheel
+test-bot: ## Bot: ruff, mypy --strict, pytest
+	$(MAKE) -C apps/bot check
 
-live:
-	uv pip install -e ".[dev]"
+test-ui: ## UI: ruff, pytest, frontend typecheck + tests
+	$(MAKE) -C apps/ui test
 
-test-full:
-	uv sync --dev
-	PYTHONPATH=. uv run python -c "from autochannel import VERSION; print(VERSION)"
-	PYTHONPATH=. uv run python -c "import autochannel.autochannel_bot"
-	PYTHONPATH=. uv run python -m pytest tests/ -v --tb=short --cov=autochannel --cov-report=term-missing
+migrate: ## alembic upgrade head against SQLALCHEMY_DATABASE_URI
+	uv run alembic -c packages/autochannel-db/alembic.ini upgrade head
+
+build-images: ## Build both images from the repo root
+	docker build -f apps/bot/Dockerfile -t autochannel-bot:local .
+	docker build -f apps/ui/Dockerfile -t autochannel-ui:local .

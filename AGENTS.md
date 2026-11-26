@@ -13,7 +13,18 @@ This repository contains the source code for the AutoChannel Discord bot. The bo
 - Type hints are required for all functions
 - Use `from __future__ import annotations` at the top of each file to enable postponed evaluation of annotations
 
-## Project Structure
+## Monorepo Layout
+This repo holds both AutoChannel services, which share one database:
+- `apps/bot/` - The Discord bot (`autochannel` package). Paths below are relative to it.
+- `apps/ui/` - The auto-chan.io dashboard: Flask API (`autochannel_ui`) + React SPA (`frontend/`).
+  See `apps/ui/README.md`.
+- `packages/autochannel-db/` - Shared SQLAlchemy models and Alembic migrations.
+
+The root `pyproject.toml` is a virtual uv workspace (`members = ["apps/*", "packages/*"]`)
+with one `uv.lock`. Both Dockerfiles build with the repo root as context
+(`docker build -f apps/<app>/Dockerfile .`). `make help` at the root lists the shared targets.
+
+## Project Structure (apps/bot)
 - `autochannel/` - Core bot code
   - `__init__.py` - Package metadata and version info
   - `autochannel.py` - Custom Bot class implementation
@@ -47,7 +58,7 @@ The bot initialization flow:
 5. The bot connects to Discord using the provided token
 
 ## Key Dependencies
-- **Python**: >=3.13 (CI on 3.13 and 3.14; Docker image uses 3.14)
+- **Python**: >=3.14 (one version for the whole workspace)
 - **discord.py**: >=2.7.1 - Primary framework for interacting with Discord API
 - **SQLAlchemy**: Database ORM for PostgreSQL integration
 - **aiohttp**: Asynchronous HTTP client for API requests
@@ -62,14 +73,14 @@ The AutoChannel bot uses [discord.py](https://discordpy.readthedocs.io/) as its 
 - Support for voice channels, guild management, and user interactions
 
 The documentation for discord.py can be found at: [https://discordpy.readthedocs.io/](https://discordpy.readthedocs.io/)
-- Bump version in both `autochannel/__init__.py` (VERSION_INFO and VERSION) and `pyproject.toml` when shipping changes
+- Bump version in both `apps/bot/autochannel/__init__.py` (VERSION_INFO and VERSION) and `pyproject.toml` when shipping changes
 - Format: `(MAJOR, MINOR, PATCH)` → `"MAJOR.MINOR.PATCH"`
 
 ## Testing & Linting
 - **Linting**: `ruff format . && ruff check .`
 - **Type checking**: `mypy --package autochannel --strict`
 - **Testing**: `make test` or `pytest -v`
-- CI runs lint, type check, and tests on Python 3.13 and 3.14
+- CI runs lint, type check, and tests on Python 3.14
 
 ## Channel Maintenance
 - Voice state changes, channel deletes and `/sync` only *queue* a category; the
@@ -97,7 +108,7 @@ The documentation for discord.py can be found at: [https://discordpy.readthedocs
 6. **Test after changes**: Always run the test suite after functional changes
 
 ## Getting Started
-1. Install dependencies: `uv sync --dev`
+1. Install dependencies: `uv sync --all-packages` at the repo root (or `uv sync` in `apps/bot`)
 2. Set up environment: Copy `example.env` to `.env` and configure
 3. Run bot: `autochannel --debug` or `uv run python -m autochannel.autochannel_bot`
 4. Run tests: `make test` or `pytest -v` (ensures `uv sync --dev` is run first)

@@ -17,7 +17,7 @@ from sqlalchemy import create_engine
 
 from autochannel_db import Base
 
-ALEMBIC_INI = Path(__file__).parent.parent / 'packages' / 'autochannel-db' / 'alembic.ini'
+ALEMBIC_INI = Path(__file__).resolve().parents[3] / 'packages' / 'autochannel-db' / 'alembic.ini'
 
 
 def alembic_config(url, output_buffer=None):

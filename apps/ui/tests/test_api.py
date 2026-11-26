@@ -1,7 +1,7 @@
 import pytest
 
-from autochannel import db
-from autochannel.api import api_functions
+from autochannel_ui import db
+from autochannel_ui.api import api_functions
 from autochannel_db import Category, Channel, Guild
 from conftest import CAT_ID, GUILD_ID, OTHER_GUILD_ID
 

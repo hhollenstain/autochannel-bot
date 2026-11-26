@@ -2,9 +2,9 @@
 import logging
 from flask import Blueprint, jsonify, request, session
 """App imports"""
-from autochannel.lib.auth import api_login_required, get_managed_guild
-from autochannel.api import api_functions
-from autochannel.data import data_functions
+from autochannel_ui.lib.auth import api_login_required, get_managed_guild
+from autochannel_ui.api import api_functions
+from autochannel_ui.data import data_functions
 
 LOG = logging.getLogger(__name__)
 
