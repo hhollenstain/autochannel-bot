@@ -6,6 +6,9 @@ description = "Shared AutoChannel database models and Alembic migrations"
 requires-python = ">=3.10"
 dependencies = [
     "alembic>=1.14",
+    # SQLAlchemy 2.1 uses psycopg (v3) for plain postgresql:// URLs; ship it with the
+    # schema so every image that can run migrations can also reach Postgres.
+    "psycopg[binary]>=3.2",
     "SQLAlchemy>=2.0",
 ]
 

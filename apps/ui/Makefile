@@ -31,8 +31,7 @@ migrate: ## alembic upgrade head
 	uv run alembic -c ../../packages/autochannel-db/alembic.ini upgrade head
 
 docker-compose: ## Build both images and run the full stack (root docker-compose.yml) with secrets from 1Password
-	$(MAKE) -C ../.. build-images
-	op run --env-file=.env-dev -- env AUTOCHANNEL_TAG=local docker compose -f ../../docker-compose.yml up
+	$(MAKE) -C ../.. up RUN="op run --env-file=apps/ui/.env-dev --"
 
 build-image: ## Build the Docker image
 	docker build -f Dockerfile -t $(IMAGE) ../..
