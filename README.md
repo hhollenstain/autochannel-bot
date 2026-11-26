@@ -17,9 +17,31 @@ Requires Python 3.14, [uv](https://docs.astral.sh/uv/), and Node 24 for the UI f
 ```sh
 make install       # uv sync --all-packages + npm ci
 make test          # bot and UI checks
-make build-images  # both Docker images, built from the repo root
+make build-images  # both Docker images (:local), built from the repo root
 make migrate       # alembic upgrade head against $SQLALCHEMY_DATABASE_URI
 ```
+
+### Running the containers locally
+
+Each target rebuilds only the image(s) it needs, runs `migrate` first, then starts the
+app(s) from the root `docker-compose.yml`:
+
+```sh
+make up-bot        # bot only (migrations run from the bot image; no UI build needed)
+make up-ui         # dashboard only, on http://localhost:5100
+make up            # both together
+make logs          # follow logs
+make down          # stop the local stack
+```
+
+These targets, and `make migrate`, run under the 1Password CLI
+(`op run --env-file=apps/ui/.env-dev --`), which resolves the `op://` references in that
+file. Use `OP_ENV_FILE=...` for a different file, or `RUN=` to skip 1Password and use your
+shell or a root `.env` instead. Pass compose flags with `UP_FLAGS`, e.g.
+`make up-ui UP_FLAGS=-d`. While the full stack runs, `make up-bot` or `make up-ui`
+recreates only that app's container. These targets use their own compose project
+(`autochannel-local`), so they never touch a stack deployed from this directory with
+`docker compose up`.
 
 The root `pyproject.toml` is a virtual [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/)
 with a single `uv.lock`, so both apps always resolve the same `autochannel-db` and

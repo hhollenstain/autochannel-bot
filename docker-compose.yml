@@ -4,14 +4,14 @@
 #   op run --env-file=apps/ui/.env-dev -- docker compose up      # secrets from 1Password
 #
 # Variables are passed through from the shell or a .env file next to this file.
+# AUTOCHANNEL_MIGRATE_APP picks which image runs migrations (both ship autochannel-db
+# and its Alembic history); `make up-bot` uses the bot image so the UI isn't needed.
 # `migrate` runs `alembic upgrade head` from the same tag first; the apps only start
 # once it exits 0, so neither service ever runs against a schema older than its models.
 
-x-image-prefix: &prefix ${AUTOCHANNEL_IMAGE_PREFIX:-hhollenstain}
-
 services:
   migrate:
-    image: ${AUTOCHANNEL_IMAGE_PREFIX:-hhollenstain}/autochannel-ui:${AUTOCHANNEL_TAG:-latest}
+    image: ${AUTOCHANNEL_IMAGE_PREFIX:-hhollenstain}/${AUTOCHANNEL_MIGRATE_APP:-autochannel-ui}:${AUTOCHANNEL_TAG:-latest}
     command: ["alembic", "-c", "/app/packages/autochannel-db/alembic.ini", "upgrade", "head"]
     environment:
       SQLALCHEMY_DATABASE_URI:

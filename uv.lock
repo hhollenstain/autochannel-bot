@@ -362,12 +362,14 @@ version = "1.0.0"
 source = { editable = "packages/autochannel-db" }
 dependencies = [
     { name = "alembic" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "sqlalchemy" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "sqlalchemy", specifier = ">=2.0" },
 ]
 
