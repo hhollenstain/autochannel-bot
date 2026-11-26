@@ -1,0 +1,124 @@
+# Publishing a GitHub Release builds and pushes BOTH images from the same commit, so the
+# bot and the dashboard always ship together against the same autochannel-db.
+#
+#   1. build (bot, ui): push <image>:<release_tag> to GHCR (and Docker Hub if configured).
+#   2. promote: only after both builds succeed, point :latest at those exact digests.
+#      A failed build therefore never leaves :latest mixing a new bot with an old UI.
+#
+# Images:
+#   ghcr.io/<owner>/autochannel-bot, ghcr.io/<owner>/autochannel-ui
+#   docker.io/<DOCKERHUB_USERNAME>/autochannel-bot, .../autochannel-ui  (optional)
+#
+# Optional repository secrets for Docker Hub (the root docker-compose.yml pulls from it):
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#
+# Deploy with: AUTOCHANNEL_TAG=<release_tag> docker compose up -d
+# (runs `alembic upgrade head` from the same tag before starting either app).
+
+name: Release
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name }}
+  GHCR_PREFIX: ghcr.io/${{ github.repository_owner }}
+  # Secrets can't be used in step `if:` conditions, so expose presence as env.
+  HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+  DOCKERHUB_PREFIX: docker.io/${{ secrets.DOCKERHUB_USERNAME }}
+
+jobs:
+  build:
+    name: Build and push (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        app: [bot, ui]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Compute tags
+        id: tags
+        env:
+          IMAGE: autochannel-${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          {
+            echo 'list<<EOF'
+            echo "${GHCR_PREFIX}/${IMAGE}:${RELEASE_TAG}"
+            if [ "${HAS_DOCKERHUB}" = "true" ]; then
+              echo "${DOCKERHUB_PREFIX}/${IMAGE}:${RELEASE_TAG}"
+            fi
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          labels: |
+            org.opencontainers.image.title=autochannel-${{ matrix.app }}
+            org.opencontainers.image.version=${{ env.RELEASE_TAG }}
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  promote:
+    name: Point :latest at this release (both images)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Retag :latest
+        run: |
+          set -euo pipefail
+          prefixes="${GHCR_PREFIX}"
+          if [ "${HAS_DOCKERHUB}" = "true" ]; then
+            prefixes="${prefixes} ${DOCKERHUB_PREFIX}"
+          fi
+          for prefix in ${prefixes}; do
+            for app in bot ui; do
+              image="${prefix}/autochannel-${app}"
+              docker buildx imagetools create --tag "${image}:latest" "${image}:${RELEASE_TAG}"
+            done
+          done

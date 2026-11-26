@@ -1,5 +1,5 @@
 # Monorepo entry points. Each app also has its own Makefile under apps/<app>/.
-.PHONY: help install test test-bot test-ui migrate build-images
+.PHONY: help install test test-bot test-ui migrate build-images up
 
 help: ## List targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -19,6 +19,11 @@ test-ui: ## UI: ruff, pytest, frontend typecheck + tests
 migrate: ## alembic upgrade head against SQLALCHEMY_DATABASE_URI
 	uv run alembic -c packages/autochannel-db/alembic.ini upgrade head
 
-build-images: ## Build both images from the repo root
-	docker build -f apps/bot/Dockerfile -t autochannel-bot:local .
-	docker build -f apps/ui/Dockerfile -t autochannel-ui:local .
+IMAGE_PREFIX ?= hhollenstain
+
+build-images: ## Build both images from the repo root, tagged :local
+	docker build -f apps/bot/Dockerfile -t $(IMAGE_PREFIX)/autochannel-bot:local .
+	docker build -f apps/ui/Dockerfile -t $(IMAGE_PREFIX)/autochannel-ui:local .
+
+up: build-images ## Run migrate + bot + ui from the local images (env from shell or .env)
+	AUTOCHANNEL_TAG=local docker compose up
