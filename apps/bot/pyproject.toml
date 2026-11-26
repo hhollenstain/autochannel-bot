@@ -70,6 +70,10 @@ test = [
 # Installed by `uv sync` (dev is the default group).
 dev = ["autochannel[dev]"]
 
+[tool.pytest.ini_options]
+# Only the bot's suite; apps/ui has its own tests and environment.
+testpaths = ["tests"]
+
 [tool.mypy]
 python_version = "3.14"
 warn_return_any = true
