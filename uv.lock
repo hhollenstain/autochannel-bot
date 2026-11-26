@@ -287,10 +287,10 @@ source = { editable = "apps/bot" }
 dependencies = [
     { name = "aiohttp" },
     { name = "aiomeasures" },
+    { name = "autochannel-db" },
     { name = "coloredlogs" },
     { name = "dblpy" },
     { name = "discord-py" },
-    { name = "flask-sqlalchemy" },
     { name = "profanityfilter" },
     { name = "prometheus-client" },
     { name = "psycopg2-binary" },
@@ -328,10 +328,10 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.0" },
     { name = "aiomeasures", specifier = ">=0.5.0" },
+    { name = "autochannel-db", editable = "packages/autochannel-db" },
     { name = "coloredlogs", specifier = ">=15.0.0" },
     { name = "dblpy", specifier = ">=0.4.0" },
     { name = "discord-py", specifier = ">=2.7.1" },
-    { name = "flask-sqlalchemy", specifier = ">=3.1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "mypy", marker = "extra == 'types'", specifier = ">=1.14.0" },
     { name = "profanityfilter", specifier = ">=2.0.0" },

@@ -1,12 +1,12 @@
 """Regression tests for the auto channel maintenance planning rules."""
 
-from autochannel.data.models import Category, Channel
 from autochannel.lib.maintenance import (
     CategorySnapshot,
     channels_to_create,
     channels_to_delete,
     next_suffixes,
 )
+from autochannel_db import Category, Channel
 
 
 def _snapshot(**overrides):
