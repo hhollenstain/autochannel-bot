@@ -1,7 +1,59 @@
-version: '3'
+# Deploys the bot and the dashboard together from ONE release tag.
+#
+#   AUTOCHANNEL_TAG=v10.1.0 docker compose up -d
+#   op run --env-file=apps/ui/.env-dev -- docker compose up      # secrets from 1Password
+#
+# Variables are passed through from the shell or a .env file next to this file.
+# `migrate` runs `alembic upgrade head` from the same tag first; the apps only start
+# once it exits 0, so neither service ever runs against a schema older than its models.
+
+x-image-prefix: &prefix ${AUTOCHANNEL_IMAGE_PREFIX:-hhollenstain}
+
 services:
-  fakah:
-    env_file:
-    - .env
-    image: hhollenstain/autochannel-bot:latest
+  migrate:
+    image: ${AUTOCHANNEL_IMAGE_PREFIX:-hhollenstain}/autochannel-ui:${AUTOCHANNEL_TAG:-latest}
+    command: ["alembic", "-c", "/app/packages/autochannel-db/alembic.ini", "upgrade", "head"]
+    environment:
+      SQLALCHEMY_DATABASE_URI:
+    restart: "no"
+
+  bot:
+    image: ${AUTOCHANNEL_IMAGE_PREFIX:-hhollenstain}/autochannel-bot:${AUTOCHANNEL_TAG:-latest}
     restart: always
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_ID:
+      TOKEN:
+      SQLALCHEMY_DATABASE_URI:
+      AUTO_CATEGORIES:
+      AUTO_CHANNEL_PREFIX:
+      BLOCKED_USERS:
+      DBL_TOKEN:
+      ENV:
+      GAMES:
+      SHARD:
+      SHARD_COUNT:
+      TESTING_GUILD_ID:
+      VOICE_CHANNEL_PREFIX:
+
+  ui:
+    image: ${AUTOCHANNEL_IMAGE_PREFIX:-hhollenstain}/autochannel-ui:${AUTOCHANNEL_TAG:-latest}
+    restart: always
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      AC_TOKEN:
+      APP_ID:
+      TOKEN:
+      SQLALCHEMY_DATABASE_URI:
+      FRONTEND_URL:
+      OAUTH2_CLIENT_ID:
+      OAUTH2_CLIENT_SECRET:
+      OAUTH2_REDIRECT_URI:
+      REDIS_URL:
+      SECRET_KEY:
+    ports:
+      - "5100:5000"

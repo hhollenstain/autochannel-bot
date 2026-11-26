@@ -1,71 +1,54 @@
-# AutoChannel Bot
+# AutoChannel
 
+Monorepo for the AutoChannel Discord bot and its auto-chan.io dashboard. Both services
+read and write the same Postgres database, so they share one schema package and are
+built, tested and released together.
 
-## How to develop?
+| Path | What it is |
+| :--- | :--------- |
+| [`apps/bot/`](apps/bot/) | The Discord bot (`autochannel` package, `autochannel` console script) |
+| [`apps/ui/`](apps/ui/) | The dashboard: Flask API (`autochannel_ui`) + React SPA (`frontend/`) |
+| [`packages/autochannel-db/`](packages/autochannel-db/) | Shared SQLAlchemy models + Alembic migrations (`autochannel_db`) |
 
-The makefile is your friend, but have a few perquisites you will need to cover first.
-You will need uv, make, gcc (linux) for compiling fun. This readme will not go
-over all this, but should be straight forward. Check out [uv](https://github.com/astral-sh/uv) for more info.
+## Development
 
+Requires Python 3.14, [uv](https://docs.astral.sh/uv/), and Node 24 for the UI frontend.
 
-
-### Running commands
-
-#### make init
-does the base install of the source package through uv that should already be installed,
-if a local uv venv isn't yet setup this is when it will happen (python 3.13+)
-
-#### make check
-Designed to do linting and uv dependency checking
-
-#### make test
-This is designed to install the autochannel package and testing packages
-
-#### make dist
-Makes the dist package for system builds.
-
-#### make live
-This runs only on image builds in my CI/CD pipeline to install the package in the image.
-
-
-### After installing autochannel-bot what do?
-
-You will need to copy example.env to .env and update the value inside
-
-| ENV Variable | Description | Required | Default |
-| :----------- | :---------: | -------: | :-----: |
-| `APP_ID`     | APP ID of your discordapp | NO | N/A |
-| `TOKEN`      | Token for your bots api access to discord | YES | N/A |
-| `BLOCKED_USERS` | Blocked UID's of users | NO | N/A |
-| `GAMES`      | Comma delimited list of games your bot is playing | NO | N/A |
-| `VOICE_CHANNEL_PREFIX` | The prefix the voice channels the bot manages | NO | "!F" |
-| `AUTO_CATEGORIES` | What categories to watch and auto channel generation | YES | "auto-voice" |
-| `AUTO_CHANNEL_PREFIX` | the prefix used to mark auto channels| NO | "!AC" |
-
-### Now Running the bot locally
-run:
-```bash
-uv run autochannel
+```sh
+make install       # uv sync --all-packages + npm ci
+make test          # bot and UI checks
+make build-images  # both Docker images, built from the repo root
+make migrate       # alembic upgrade head against $SQLALCHEMY_DATABASE_URI
 ```
 
-```bash
-pipenv run autochannel
-Loading .env environment variables...
-[2019-08-02 17:57:20][INFO] [autochannel.autochannel_bot.main:52] LONG LIVE AutoChannel bot
-[2019-08-02 17:57:20][DEBUG] [asyncio.__init__:54] Using selector: EpollSelector
-[2019-08-02 17:57:20][WARNING] [discord.client.__init__:189] PyNaCl is not installed, voice will NOT be supported
-[2019-08-02 17:57:20][INFO] [autochannel.lib.plugin.load:20] Loaded extension: autochannel.lib.plugins.autochannels
-[2019-08-02 17:57:20][INFO] [autochannel.lib.plugin.load:20] Loaded extension: autochannel.lib.plugins.server
-[2019-08-02 17:57:20][INFO] [discord.client.login:399] logging in using static token
-[2019-08-02 17:57:20][INFO] [discord.gateway.from_client:241] Created websocket connected to wss://gateway.discord.gg?encoding=json&v=6&compress=zlib-stream
-[2019-08-02 17:57:20][INFO] [discord.gateway.identify:320] Shard ID 0 has sent the IDENTIFY payload.
-[2019-08-02 17:57:20][INFO] [discord.gateway.received_message:411] Shard ID 0 has connected to Gateway: ["gateway-prd-main-3dcm",{"micros":23263,"calls":["discord-sessions-prd-1-28",{"micros":22009,"calls":["start_session",{"micros":17988,"calls":["api-prd-main-fcsr",{"micros":15125,"calls":["get_user",{"micros":1523},"add_authorized_ip",{"micros":5},"get_guilds",{"micros":1768},"coros_wait",{"micros":2}]}]},"guilds_connect",{"micros":2,"calls":[]},"presence_connect",{"micros":3053,"calls":[]}]}]}] (Session ID: c2c093df8c212725baf89d4a596ccfe4).
-[2019-08-02 17:57:22][INFO] [autochannel.lib.plugins.autochannels.on_ready:63] Starting Voice Channel purger loop
-[2019-08-02 17:57:22][INFO] [autochannel.lib.plugins.server.on_ready:20] Logged in as AutoChannel-test
-[2019-08-02 17:57:22][INFO] [autochannel.lib.utils.list_servers:112] Current servers: ['Tamago']
+The root `pyproject.toml` is a virtual [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/)
+with a single `uv.lock`, so both apps always resolve the same `autochannel-db` and
+SQLAlchemy versions.
+
+## Schema changes
+
+Change the models only in `packages/autochannel-db/src/autochannel_db/models.py`, and add
+an Alembic revision in the same PR:
+
+```sh
+uv run alembic -c packages/autochannel-db/alembic.ini revision --autogenerate -m "..."
 ```
 
+## Releasing and deploying
 
-## Okay I got it running so?
-Either fix things or change things you want. This runs on the discordpy API documentation [here](https://discordpy.readthedocs.io/en/latest/index.html)
-If you want to fix things or just improve it go ahead and submit PRs against the repo, I will welcome any changes!
+The bot and the dashboard are released **together**. Publishing a GitHub Release runs
+`.github/workflows/release.yml`, which:
+
+1. Builds both images from the release commit and pushes `autochannel-bot:<tag>` and
+   `autochannel-ui:<tag>` (GHCR, plus Docker Hub when `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`
+   are set).
+2. Only after both succeed, moves `:latest` on both images to those digests.
+
+Deploy both from the same tag with the root `docker-compose.yml`:
+
+```sh
+AUTOCHANNEL_TAG=<tag> docker compose up -d
+```
+
+Its `migrate` service runs `alembic upgrade head` from that tag first. `bot` and `ui` start
+only after it succeeds, so neither app runs against an older schema than its models.

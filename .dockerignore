@@ -1,0 +1,17 @@
+# Both images build with the repo root as context.
+.git
+.github
+**/.venv
+**/.uv-cache
+**/.npm-cache
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/*.egg-info
+**/node_modules
+**/.env
+**/.env-dev
+**/*.db
+apps/ui/frontend/dist
+apps/*/tests
